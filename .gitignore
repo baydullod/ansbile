@@ -4,7 +4,8 @@
 # .tfstate files
 *.tfstate
 *.tfstate.*
-
+config.cgf
+inventory
 # Crash log files
 crash.log
 crash.*.log
