@@ -1,2 +1,2 @@
 # ansbile
-This project designed for learning purpose
+This is Ansible Tutorial designed for personal needs
