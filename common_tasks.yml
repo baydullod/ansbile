@@ -1,0 +1,45 @@
+---
+- name: Configure UFW and Restart Apache
+  hosts: all
+  become: yes
+  tasks:
+    - name: Ensure UFW is installed
+      apt:
+        name: ufw
+        state: present
+
+    - name: Reset UFW to default settings
+      ufw:
+        state: reset
+
+    - name: Allow SSH from anywhere
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow traffic on port 80 for Apache
+      ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+
+    - name: Allow traffic on port 443 for Apache
+      ufw:
+        rule: allow
+        port: 443
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        direction: incoming
+        policy: deny
+
+    - name: Set UFW logging level to 'on'
+      ufw:
+        logging: on
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
