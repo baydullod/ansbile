@@ -1,5 +1,10 @@
 # Local .terraform directories
 **/.terraform/*
+# Ignore Ansible inventory file
+inventory
+
+# Ignore Ansible configuration file
+ansible.cfg
 
 # .tfstate files
 *.tfstate
