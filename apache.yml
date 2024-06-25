@@ -1,7 +1,9 @@
 ---
-- name: Test connectivity to hosts
-  hosts: all
-  gather_facts: no
+- hosts: all
+
+  become: true
   tasks:
-    - name: Ping the hosts
-      ansible.builtin.ping:
+    - name: update apt packages
+      apt:
+        upgrade: yes
+        update_cache: yes
