@@ -1,9 +1,37 @@
 ---
-- hosts: all
-
-  become: true
+- name: Gather information about the state of host servers
+  hosts: all
+  gather_facts: yes
   tasks:
-    - name: update apt packages
-      apt:
-        upgrade: yes
-        update_cache: yes
+
+    - name: Gather disk usage
+      command: df -h
+      register: disk_usage
+
+    - name: Print disk usage
+      debug:
+        var: disk_usage.stdout_lines
+
+    - name: Gather memory usage
+      command: free -m
+      register: memory_usage
+
+    - name: Print memory usage
+      debug:
+        var: memory_usage.stdout_lines
+
+    - name: Gather CPU information
+      command: lscpu
+      register: cpu_info
+
+    - name: Print CPU information
+      debug:
+        var: cpu_info.stdout_lines
+
+    - name: Gather uptime
+      command: uptime
+      register: uptime_info
+
+    - name: Print uptime
+      debug:
+        var: uptime_info.stdout_lines
