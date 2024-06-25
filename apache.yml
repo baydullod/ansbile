@@ -1,7 +1,17 @@
 ---
-- hosts: my_servers
+- hosts: web_servers
   become: true
   tasks:
-    - name: Print OS info
+    - name: Install Apache2
       ansible.builtin.package:
         name: apache2
+        state: present
+
+    - name: Print OS info
+      ansible.builtin.command:
+        cmd: uname -a
+
+    - name: Stop Apache2 service
+      ansible.builtin.service:
+        name: apache2
+        state: stopped
