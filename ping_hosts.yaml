@@ -1,8 +1,18 @@
 ---
-- name: Ping all hosts
+- name: Ping all hosts and update packages
   hosts: all
-  gather_facts: no
+  become: yes  # Use 'become' to gain root privileges for package management
 
   tasks:
     - name: Ping
       ping:
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600  # Optional: cache valid for 1 hour to avoid repeated updates
+
+    - name: Upgrade all packages to the latest version on Ubuntu systems
+      ansible.builtin.apt:
+        upgrade: dist
+      when: ansible_distribution == 'Ubuntu'
