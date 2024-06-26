@@ -16,3 +16,26 @@
       ansible.builtin.apt:
         upgrade: dist
       when: ansible_distribution == 'Ubuntu'
+
+    - name: Check current running kernel version
+      command: uname -r
+      register: running_kernel
+
+    - name: Check latest installed kernel version
+      command: dpkg --list | grep linux-image | awk '{print $3}' | sort -V | tail -n 1
+      register: installed_kernel
+
+    - name: Compare running and installed kernel versions
+      debug:
+        msg: "Kernel update detected. A restart is required to use the new kernel."
+      when: running_kernel.stdout != installed_kernel.stdout
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Display reboot required message
+      debug:
+        msg: "Reboot is required."
+      when: reboot_required.stat.exists
