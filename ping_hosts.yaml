@@ -1,49 +1,10 @@
 ---
-- name: Install and switch to Kernel 5.15.0-116.126
+- name: Test Kernel Installation Process
   hosts: all
   become: yes
   gather_facts: no
 
   tasks:
-    - name: Notify: Starting the process to install Kernel 5.15.0-116.126
+    - name: Notify: Starting the process
       ansible.builtin.debug:
         msg: "Starting the process to install Kernel 5.15.0-116.126"
-
-    - name: Install the specific kernel version 5.15.0-116.126
-      ansible.builtin.apt:
-        name: 
-          - "linux-image-5.15.0-116-generic"
-          - "linux-headers-5.15.0-116-generic"
-          - "linux-modules-5.15.0-116-generic"
-        state: present
-      register: install_kernel_result
-
-    - name: Notify: Kernel installation completed
-      ansible.builtin.debug:
-        msg: "Kernel 5.15.0-116.126 installation completed."
-      when: install_kernel_result is success
-
-    - name: Notify: Updating GRUB to use the new kernel
-      ansible.builtin.debug:
-        msg: "Updating GRUB to use the new kernel version 5.15.0-116.126."
-
-    - name: Update GRUB to use the new kernel
-      ansible.builtin.command: update-grub
-      register: update_grub_result
-
-    - name: Notify: GRUB update completed
-      ansible.builtin.debug:
-        msg: "GRUB update completed."
-      when: update_grub_result.rc == 0
-
-    - name: Notify: Rebooting the server to apply the new kernel
-      ansible.builtin.debug:
-        msg: "Rebooting the server to apply the new kernel version 5.15.0-116.126."
-
-    - name: Reboot the server to apply the new kernel
-      ansible.builtin.reboot:
-        reboot_timeout: 600
-
-    - name: Notify: Kernel upgrade process completed successfully
-      ansible.builtin.debug:
-        msg: "The kernel upgrade process to 5.15.0-116.126 has been completed successfully. The system is now running the new kernel."
