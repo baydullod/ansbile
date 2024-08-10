@@ -27,9 +27,11 @@
       when: reboot_required.stdout == "reboot_required"
 
     - name: Verify the running kernel after reboot
-      ansible.builtin.command: uname -r
+      ansible.builtin.command:
+        cmd: uname -r
       register: running_kernel
 
-    - name: Display the running kernel
+    - name: Debug running kernel version
       ansible.builtin.debug:
         msg: "The system is now running kernel version {{ running_kernel.stdout }}."
+      when: running_kernel.stdout is defined
