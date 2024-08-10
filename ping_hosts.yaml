@@ -6,3 +6,8 @@
   tasks:
     - name: Run free command to check memory
       ansible.builtin.command: free -m
+      register: memory_output
+
+    - name: Display memory usage
+      ansible.builtin.debug:
+        var: memory_output.stdout_lines
