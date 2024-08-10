@@ -1,13 +1,13 @@
 ---
-- name: Check Uptime
+- name: Check Kernel Version
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Run uptime command
-      ansible.builtin.command: uptime
-      register: uptime_output
+    - name: Get kernel version
+      ansible.builtin.command: uname -r
+      register: kernel_version_output
 
-    - name: Display uptime
+    - name: Display kernel version
       ansible.builtin.debug:
-        var: uptime_output.stdout_lines
+        var: kernel_version_output.stdout
