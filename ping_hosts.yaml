@@ -1,5 +1,5 @@
 ---
-- name: Test Kernel Installation Process
+- name: Test Playbook
   hosts: all
   become: yes
   gather_facts: no
@@ -7,4 +7,5 @@
   tasks:
     - name: Notify: Starting the process
       ansible.builtin.debug:
-        msg: "Starting the process to install Kernel 5.15.0-116.126"
+        msg: "Starting the process"
+        
