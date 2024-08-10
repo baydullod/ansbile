@@ -1,5 +1,5 @@
 ---
-- name: Apply the latest kernel updates
+- name: Ensure the system is running the latest Ubuntu kernel
   hosts: all
   become: yes
   gather_facts: no
@@ -9,59 +9,53 @@
       ansible.builtin.apt:
         update_cache: yes
 
-    - name: Upgrade all packages, including the latest kernel
-      ansible.builtin.apt:
-        name: '*'
-        state: latest
+    - name: Check the currently running kernel version
+      ansible.builtin.command: uname -r
+      register: current_kernel
 
-    - name: Ensure the latest kernel is installed
+    - name: Find the latest available kernel version
       ansible.builtin.shell: |
-        dpkg -l | grep linux-image | grep ii | sort -V | tail -n 1 | awk '{print $2}'
-      register: latest_kernel
+        apt-cache policy linux-generic | grep -m 1 Candidate | awk '{print $2}'
+      register: latest_kernel_version
+
+    - name: Debug the current and latest kernel versions
+      ansible.builtin.debug:
+        msg: "Current kernel: {{ current_kernel.stdout }}, Latest available kernel: {{ latest_kernel_version.stdout }}"
+
+    - name: Compare current kernel with the latest available version
+      ansible.builtin.shell: |
+        dpkg -l | grep linux-image | grep {{ current_kernel.stdout }} | grep -q {{ latest_kernel_version.stdout }}
+      register: is_latest_kernel_installed
+      failed_when: false
       changed_when: false
 
-    - name: Debug latest kernel version
+    - name: Install the latest available kernel if it's not installed
+      ansible.builtin.apt:
+        name: linux-generic
+        state: latest
+      when: is_latest_kernel_installed.rc != 0
+      register: kernel_update
+
+    - name: Check if a reboot is required
+      ansible.builtin.shell: |
+        if [ -f /var/run/reboot-required ]; then echo "reboot_required"; fi
+      register: reboot_required
+      changed_when: reboot_required.stdout != ""
+      check_mode: no
+
+    - name: Debug reboot requirement
       ansible.builtin.debug:
-        var: latest_kernel.stdout
+        msg: "Reboot is required."
+      when: reboot_required.stdout == "reboot_required"
 
-    - name: Fail if latest kernel not found
-      ansible.builtin.fail:
-        msg: "Latest kernel version could not be determined."
-      when: latest_kernel.stdout is not defined or latest_kernel.stdout == ""
-
-    - name: Set GRUB to boot into the latest kernel by default
-      ansible.builtin.replace:
-        path: /etc/default/grub
-        regexp: '^GRUB_DEFAULT=.*'
-        replace: 'GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux {{ latest_kernel.stdout }}"'
-      when: latest_kernel.stdout is defined and latest_kernel.stdout != ""
-
-    - name: Update GRUB configuration
-      ansible.builtin.command:
-        cmd: update-grub
-      register: grub_update_result
-      ignore_errors: yes
-
-    - name: Ensure GRUB update ran
-      ansible.builtin.debug:
-        msg: "GRUB update command executed."
-      when: grub_update_result is defined and grub_update_result.failed is not defined
-
-    - name: Reboot the server to apply the new kernel
+    - name: Reboot the server if required
       ansible.builtin.reboot:
-        reboot_timeout: 600
+      when: reboot_required.stdout == "reboot_required"
 
     - name: Verify the running kernel after reboot
       ansible.builtin.command: uname -r
       register: running_kernel
-      ignore_errors: yes
 
     - name: Display the running kernel
       ansible.builtin.debug:
         msg: "The system is now running kernel version {{ running_kernel.stdout }}."
-      when: running_kernel is defined and 'stdout' in running_kernel and latest_kernel.stdout in running_kernel.stdout
-
-    - name: Fail if kernel version does not match
-      ansible.builtin.fail:
-        msg: "Kernel version does not match the latest version {{ latest_kernel.stdout }}. Current version: {{ running_kernel.stdout }}"
-      when: running_kernel is defined and 'stdout' in running_kernel and latest_kernel.stdout not in running_kernel.stdout
