@@ -27,8 +27,7 @@
       when: reboot_required.stdout == "reboot_required"
 
     - name: Verify the running kernel after reboot
-      ansible.builtin.command:
-        cmd: uname -r
+      ansible.builtin.command: uname -r
       register: running_kernel
 
     - name: Debug running kernel version
@@ -36,7 +35,12 @@
         msg: "The system is now running kernel version {{ running_kernel.stdout }}."
       when: running_kernel.stdout is defined
 
+    - name: Check if the latest kernel was installed
+      ansible.builtin.shell: |
+        apt-cache policy linux-generic | grep Installed | awk '{print $2}'
+      register: installed_kernel_version
+
     - name: Fail if the system is not running the latest kernel
       ansible.builtin.fail:
         msg: "The system is not running the latest kernel version after reboot. Running kernel: {{ running_kernel.stdout }}."
-      when: "'{{ running_kernel.stdout }}' not in '{{ kernel_update }}'"
+      when: running_kernel.stdout not in installed_kernel_version.stdout
