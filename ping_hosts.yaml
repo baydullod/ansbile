@@ -1,8 +1,8 @@
 ---
-- name: Check Hostname
+- name: Check Memory Usage
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Get hostname
-      ansible.builtin.command: hostname
+    - name: Run free command to check memory
+      ansible.builtin.command: free -m
