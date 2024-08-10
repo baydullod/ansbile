@@ -32,11 +32,12 @@
       ansible.builtin.command:
         cmd: update-grub
       register: grub_update_result
+      ignore_errors: yes
 
     - name: Notify GRUB update completion
       ansible.builtin.debug:
         msg: "GRUB has been updated successfully."
-      when: grub_update_result.rc == 0
+      when: grub_update_result is defined and grub_update_result.rc == 0
 
     - name: Reboot the server to apply the new kernel
       ansible.builtin.reboot:
