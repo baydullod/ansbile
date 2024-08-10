@@ -18,6 +18,14 @@
       debug:
         msg: "Latest available kernel version: {{ latest_kernel_version.stdout.strip() }}"
 
+    - name: Convert the kernel version to the correct package format
+      set_fact:
+        kernel_package_version: "{{ latest_kernel_version.stdout.strip() | regex_replace('\\.', '-') | regex_replace('-(\\d+)-', '-\\1-') }}"
+
+    - name: Debug the converted kernel package version
+      debug:
+        msg: "Kernel package version: {{ kernel_package_version }}"
+
     - name: Get the currently running kernel version
       command: uname -r
       register: current_kernel_version
@@ -30,11 +38,11 @@
     - name: Install the specific latest available kernel version
       apt:
         name:
-          - "linux-image-{{ latest_kernel_version.stdout.strip().replace('.', '-') }}-generic"
-          - "linux-headers-{{ latest_kernel_version.stdout.strip().replace('.', '-') }}-generic"
-          - "linux-modules-{{ latest_kernel_version.stdout.strip().replace('.', '-') }}-generic"
+          - "linux-image-{{ kernel_package_version }}-generic"
+          - "linux-headers-{{ kernel_package_version }}-generic"
+          - "linux-modules-{{ kernel_package_version }}-generic"
         state: present
-      when: current_kernel_version.stdout.strip() not in latest_kernel_version.stdout.strip()
+      when: current_kernel_version.stdout.strip() not in kernel_package_version
       register: kernel_installed
 
     - name: Check if a reboot is required
@@ -59,5 +67,5 @@
 
     - name: Fail if the system is not running the latest kernel
       ansible.builtin.fail:
-        msg: "The system is not running the latest kernel version. Expected: {{ latest_kernel_version.stdout.strip() }}, but running: {{ running_kernel.stdout.strip() }}."
-      when: running_kernel.stdout.strip() != latest_kernel_version.stdout.strip()
+        msg: "The system is not running the latest kernel version. Expected: {{ kernel_package_version }}, but running: {{ running_kernel.stdout.strip() }}."
+      when: running_kernel.stdout.strip() != kernel_package_version
