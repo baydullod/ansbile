@@ -15,25 +15,27 @@
 
     - name: Find the latest available kernel version
       ansible.builtin.shell: |
-        apt-cache policy linux-generic | grep -m 1 Candidate | awk '{print $2}'
+        apt-cache policy linux-generic | grep Candidate | awk '{print $2}'
       register: latest_kernel_version
 
     - name: Debug the current and latest kernel versions
       ansible.builtin.debug:
         msg: "Current kernel: {{ current_kernel.stdout }}, Latest available kernel: {{ latest_kernel_version.stdout }}"
 
-    - name: Compare current kernel with the latest available version
+    - name: Check if the current kernel is the latest
       ansible.builtin.shell: |
-        dpkg -l | grep linux-image | grep {{ current_kernel.stdout }} | grep -q {{ latest_kernel_version.stdout }}
-      register: is_latest_kernel_installed
-      failed_when: false
-      changed_when: false
+        if [[ "{{ latest_kernel_version.stdout }}" == "$(dpkg -l | grep linux-image | grep $(uname -r) | awk '{print $3}')" ]]; then
+          echo "latest";
+        else
+          echo "not_latest";
+        fi
+      register: kernel_comparison
 
-    - name: Install the latest available kernel if it's not installed
+    - name: Install the latest available kernel if it's not the latest
       ansible.builtin.apt:
         name: linux-generic
         state: latest
-      when: is_latest_kernel_installed.rc != 0
+      when: kernel_comparison.stdout == "not_latest"
       register: kernel_update
 
     - name: Check if a reboot is required
