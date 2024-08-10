@@ -1,34 +1,19 @@
 ---
-- name: Downgrade to Kernel 5.14.x
+- name: Install and switch to Kernel 5.15.0-116.126
   hosts: all
   become: yes
   gather_facts: no
 
   tasks:
-    - name: Download kernel image for 5.14.x
-      ansible.builtin.get_url:
-        url: "https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.14.21/amd64/linux-image-unsigned-5.14.21-051421-generic_5.14.21-051421.202110260732_amd64.deb"
-        dest: "/tmp/linux-image-5.14.21-051421-generic.deb"
-
-    - name: Download kernel headers for 5.14.x
-      ansible.builtin.get_url:
-        url: "https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.14.21/amd64/linux-headers-5.14.21-051421-generic_5.14.21-051421.202110260732_amd64.deb"
-        dest: "/tmp/linux-headers-5.14.21-051421-generic.deb"
-
-    - name: Download kernel modules for 5.14.x
-      ansible.builtin.get_url:
-        url: "https://kernel.ubuntu.com/~kernel-ppa/mainline/v5.14.21/amd64/linux-modules-5.14.21-051421-generic_5.14.21-051421.202110260732_amd64.deb"
-        dest: "/tmp/linux-modules-5.14.21-051421-generic.deb"
-
-    - name: Install the downloaded kernel packages
+    - name: Install the specific kernel version 5.15.0-116.126
       ansible.builtin.apt:
-        deb: 
-          - "/tmp/linux-image-5.14.21-051421-generic.deb"
-          - "/tmp/linux-headers-5.14.21-051421-generic.deb"
-          - "/tmp/linux-modules-5.14.21-051421-generic.deb"
+        name: 
+          - "linux-image-5.15.0-116-generic"
+          - "linux-headers-5.15.0-116-generic"
+          - "linux-modules-5.15.0-116-generic"
         state: present
 
-    - name: Update GRUB to recognize the new kernel
+    - name: Update GRUB to use the new kernel
       ansible.builtin.command: update-grub
 
     - name: Reboot the server to apply the new kernel
