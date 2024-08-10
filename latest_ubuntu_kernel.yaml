@@ -9,22 +9,21 @@
       ansible.builtin.apt:
         update_cache: yes
 
-    - name: Get the latest available kernel version from linux-image-generic
-      shell: apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
+    - name: Get the latest available kernel package names
+      shell: |
+        apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
       register: latest_kernel_version
       changed_when: false
 
-    - name: Debug the latest available kernel version
-      debug:
-        msg: "Latest available kernel version: {{ latest_kernel_version.stdout.strip() }}"
+    - name: Get the actual package names from the version string
+      shell: |
+        apt-cache madison linux-image-{{ latest_kernel_version.stdout.strip() }} | awk '{print $1}'
+      register: package_names
+      changed_when: false
 
-    - name: Convert the kernel version to the correct package format
-      set_fact:
-        kernel_package_version: "{{ latest_kernel_version.stdout.strip() | regex_replace('\\.', '-') | regex_replace('-(\\d+)-', '-\\1-') }}"
-
-    - name: Debug the converted kernel package version
+    - name: Debug the package names
       debug:
-        msg: "Kernel package version: {{ kernel_package_version }}"
+        msg: "Kernel package names: {{ package_names.stdout_lines }}"
 
     - name: Get the currently running kernel version
       command: uname -r
@@ -35,14 +34,12 @@
       debug:
         msg: "Current running kernel version: {{ current_kernel_version.stdout.strip() }}"
 
-    - name: Install the specific latest available kernel version
+    - name: Install the latest available kernel
       apt:
-        name:
-          - "linux-image-{{ kernel_package_version }}-generic"
-          - "linux-headers-{{ kernel_package_version }}-generic"
-          - "linux-modules-{{ kernel_package_version }}-generic"
+        name: "{{ item }}"
         state: present
-      when: current_kernel_version.stdout.strip() not in kernel_package_version
+      loop: "{{ package_names.stdout_lines }}"
+      when: current_kernel_version.stdout.strip() not in latest_kernel_version.stdout.strip()
       register: kernel_installed
 
     - name: Check if a reboot is required
@@ -67,5 +64,5 @@
 
     - name: Fail if the system is not running the latest kernel
       ansible.builtin.fail:
-        msg: "The system is not running the latest kernel version. Expected: {{ kernel_package_version }}, but running: {{ running_kernel.stdout.strip() }}."
-      when: running_kernel.stdout.strip() != kernel_package_version
+        msg: "The system is not running the latest kernel version. Expected: {{ latest_kernel_version.stdout.strip() }}, but running: {{ running_kernel.stdout.strip() }}."
+      when: running_kernel.stdout.strip() != latest_kernel_version.stdout.strip()
