@@ -1,0 +1,12 @@
+---
+- name: Check Ubuntu Kernel Version
+  hosts: all
+  become: yes
+  tasks:
+    - name: Gather installed kernel version
+      shell: uname -r
+      register: kernel_version
+
+    - name: Display kernel version
+      debug:
+        msg: "The current kernel version is {{ kernel_version.stdout }}"
