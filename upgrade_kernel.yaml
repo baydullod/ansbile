@@ -23,7 +23,7 @@
       when: install_kernel_result is succeeded
 
     - name: List all installed kernel versions
-      ansible.builtin.command: dpkg --list | grep linux-image
+      ansible.builtin.shell: dpkg --list | grep linux-image
       register: installed_kernels
 
     - name: Display installed kernels
