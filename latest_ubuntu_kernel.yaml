@@ -35,3 +35,8 @@
       ansible.builtin.debug:
         msg: "The system is now running kernel version {{ running_kernel.stdout }}."
       when: running_kernel.stdout is defined
+
+    - name: Fail if the system is not running the latest kernel
+      ansible.builtin.fail:
+        msg: "The system is not running the latest kernel version after reboot. Running kernel: {{ running_kernel.stdout }}."
+      when: "'{{ running_kernel.stdout }}' not in '{{ kernel_update }}'"
