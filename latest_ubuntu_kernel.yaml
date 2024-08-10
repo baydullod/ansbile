@@ -9,33 +9,10 @@
       ansible.builtin.apt:
         update_cache: yes
 
-    - name: Check the currently running kernel version
-      ansible.builtin.command: uname -r
-      register: current_kernel
-
-    - name: Find the latest available kernel version
-      ansible.builtin.shell: |
-        apt-cache policy linux-generic | grep Candidate | awk '{print $2}'
-      register: latest_kernel_version
-
-    - name: Debug the current and latest kernel versions
-      ansible.builtin.debug:
-        msg: "Current kernel: {{ current_kernel.stdout }}, Latest available kernel: {{ latest_kernel_version.stdout }}"
-
-    - name: Check if the current kernel is the latest
-      ansible.builtin.shell: |
-        if [[ "{{ latest_kernel_version.stdout }}" == "$(dpkg -l | grep linux-image | grep $(uname -r) | awk '{print $3}')" ]]; then
-          echo "latest";
-        else
-          echo "not_latest";
-        fi
-      register: kernel_comparison
-
-    - name: Install the latest available kernel if it's not the latest
+    - name: Install the latest available kernel
       ansible.builtin.apt:
         name: linux-generic
         state: latest
-      when: kernel_comparison.stdout == "not_latest"
       register: kernel_update
 
     - name: Check if a reboot is required
@@ -44,11 +21,6 @@
       register: reboot_required
       changed_when: reboot_required.stdout != ""
       check_mode: no
-
-    - name: Debug reboot requirement
-      ansible.builtin.debug:
-        msg: "Reboot is required."
-      when: reboot_required.stdout == "reboot_required"
 
     - name: Reboot the server if required
       ansible.builtin.reboot:
