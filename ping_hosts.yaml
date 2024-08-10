@@ -1,41 +1,28 @@
 ---
-- name: Ping all hosts and update packages
+- name: Update and Upgrade the System
   hosts: all
-  become: yes  # Use 'become' to gain root privileges for package management
+  become: yes
+  gather_facts: yes
 
   tasks:
-    - name: Ping
-      ping:
-
-    - name: Update apt cache
+    - name: Update the package list
       ansible.builtin.apt:
         update_cache: yes
-        cache_valid_time: 3600  # Optional: cache valid for 1 hour to avoid repeated updates
 
-    - name: Upgrade all packages to the latest version on Ubuntu systems
+    - name: Upgrade all packages
       ansible.builtin.apt:
-        upgrade: dist
-      when: ansible_distribution == 'Ubuntu'
+        upgrade: full
 
-    - name: Check current running kernel version
-      command: uname -r
-      register: running_kernel
+    - name: Check if a reboot is required
+      ansible.builtin.shell: /usr/bin/needs-restarting -r || echo "No reboot required"
+      register: reboot_check
+      changed_when: false
+      failed_when: false
 
-    - name: Check latest installed kernel version
-      command: dpkg --list | grep linux-image | awk '{print $3}' | sort -V | tail -n 1
-      register: installed_kernel
-
-    - name: Compare running and installed kernel versions
-      debug:
-        msg: "Kernel update detected. A restart is required to use the new kernel."
-      when: running_kernel.stdout != installed_kernel.stdout
-
-    - name: Check if reboot is required
-      stat:
-        path: /var/run/reboot-required
-      register: reboot_required
-
-    - name: Display reboot required message
-      debug:
-        msg: "Reboot is required."
-      when: reboot_required.stat.exists
+    - name: Reboot the system if required
+      ansible.builtin.reboot:
+        msg: "Rebooting after upgrade"
+        pre_reboot_delay: 60
+        post_reboot_delay: 60
+        reboot_timeout: 3600
+      when: reboot_check.stdout.find("No reboot required") == -1
