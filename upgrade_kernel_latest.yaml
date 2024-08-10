@@ -1,9 +1,24 @@
 ---
 - hosts: all
   become: yes
+  vars:
+    script_url: "https://raw.githubusercontent.com/baydullod/ansbile/main/upgrade_kernel_latest.sh"
+    script_path: "/tmp/upgrade_kernel_latest.sh"  # Path to save the script on the remote machine
+
   tasks:
-    - name: Execute kernel upgrade script
-      script: /path/to/upgrade_kernel_latest.sh
+    - name: Ensure curl is installed
+      apt:
+        name: curl
+        state: present
+
+    - name: Download the kernel upgrade script
+      get_url:
+        url: "{{ script_url }}"
+        dest: "{{ script_path }}"
+        mode: '0755'
+
+    - name: Execute the kernel upgrade script
+      script: "{{ script_path }}"
       args:
         executable: /bin/bash
 
