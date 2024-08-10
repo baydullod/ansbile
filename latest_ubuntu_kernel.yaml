@@ -1,5 +1,5 @@
 ---
-- name: Check and install the latest available Ubuntu kernel
+- name: Ensure the system is running the latest Ubuntu kernel
   hosts: all
   become: yes
   gather_facts: no
@@ -9,15 +9,10 @@
       ansible.builtin.apt:
         update_cache: yes
 
-    - name: Get the latest available kernel version
+    - name: Get the latest available kernel version from linux-image-generic
       shell: apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
       register: latest_kernel_version
       failed_when: latest_kernel_version.stdout is undefined
-
-    - name: Fail if latest kernel version is not found
-      ansible.builtin.fail:
-        msg: "Failed to determine the latest available kernel version."
-      when: latest_kernel_version.stdout is undefined
 
     - name: Get the currently running kernel version
       command: uname -r
@@ -30,8 +25,8 @@
 
     - name: Install the latest available kernel if not already installed
       apt:
-        name: "linux-image-generic"
-        state: latest
+        name: "linux-image-{{ latest_kernel_version.stdout.strip() }}"
+        state: present
       when: current_kernel_version.stdout.strip() not in latest_kernel_version.stdout.strip()
       register: kernel_installed
 
@@ -54,3 +49,8 @@
     - name: Display the running kernel
       debug:
         msg: "The system is now running kernel version {{ running_kernel.stdout.strip() }}."
+
+    - name: Fail if the system is not running the latest kernel
+      ansible.builtin.fail:
+        msg: "The system is not running the latest kernel version. Expected: {{ latest_kernel_version.stdout.strip() }}, but running: {{ running_kernel.stdout.strip() }}."
+      when: running_kernel.stdout.strip() != latest_kernel_version.stdout.strip()
