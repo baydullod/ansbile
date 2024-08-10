@@ -1,0 +1,52 @@
+---
+- name: Upgrade to a specific kernel version
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars:
+    target_kernel_version: "5.15.0-117-generic"  # Replace with your target kernel version
+
+  tasks:
+    - name: Install the specific kernel version
+      ansible.builtin.apt:
+        name: 
+          - "linux-image-{{ target_kernel_version }}"
+          - "linux-headers-{{ target_kernel_version }}"
+          - "linux-modules-{{ target_kernel_version }}"
+        state: present
+      register: install_kernel_result
+
+    - name: Ensure the kernel version is installed
+      ansible.builtin.debug:
+        msg: "Kernel {{ target_kernel_version }} installed successfully."
+      when: install_kernel_result is succeeded
+
+    - name: Set GRUB to boot into {{ target_kernel_version }} by default
+      ansible.builtin.replace:
+        path: /etc/default/grub
+        regexp: '^GRUB_DEFAULT=.*'
+        replace: 'GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux {{ target_kernel_version }}"'
+
+    - name: Update GRUB configuration
+      ansible.builtin.command:
+        cmd: update-grub
+      register: grub_update_result
+
+    - name: Notify GRUB update completion
+      ansible.builtin.debug:
+        msg: "GRUB has been updated successfully."
+      when: grub_update_result.rc == 0
+
+    - name: Reboot the server to apply the new kernel
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+
+    - name: Verify the running kernel after reboot
+      ansible.builtin.shell: uname -r
+      register: running_kernel
+
+    - name: Display the running kernel
+      ansible.builtin.debug:
+        msg: "The system is now running kernel version {{ running_kernel.stdout }}."
+      when: "'{{ target_kernel_version }}' in running_kernel.stdout"
