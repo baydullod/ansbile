@@ -12,22 +12,13 @@
     - name: Fetch raw kernel version information
       shell: apt-cache madison linux-image-generic
       register: raw_kernel_info
+      ignore_errors: yes
 
     - name: Display raw kernel version information
       debug:
-        msg: "Raw kernel version info: {{ raw_kernel_info.stdout_lines }}"
+        msg: "Raw kernel version info: {{ raw_kernel_info.stdout }}"
 
-    - name: Get the latest available kernel version from linux-image-generic
-      shell: apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
-      register: latest_kernel_version
-      changed_when: false
-
-    - name: Debug latest available kernel version
+    - name: Display any errors from the kernel version fetch
       debug:
-        msg: "Latest available kernel version: {{ latest_kernel_version.stdout }}"
-      when: latest_kernel_version.stdout is defined
-
-    - name: Fail if latest kernel version is not found
-      ansible.builtin.fail:
-        msg: "Failed to determine the latest available kernel version."
-      when: latest_kernel_version.stdout is undefined
+        msg: "Errors: {{ raw_kernel_info.stderr }}"
+      when: raw_kernel_info.stderr is defined
