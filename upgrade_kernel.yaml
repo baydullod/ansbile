@@ -34,10 +34,15 @@
       register: grub_update_result
       ignore_errors: yes
 
-    - name: Notify GRUB update completion
+    - name: Check if GRUB update was successful
       ansible.builtin.debug:
         msg: "GRUB has been updated successfully."
-      when: grub_update_result is defined and grub_update_result.rc == 0
+      when: grub_update_result is defined and grub_update_result.rc is defined and grub_update_result.rc == 0
+
+    - name: Display GRUB update error
+      ansible.builtin.debug:
+        msg: "GRUB update failed with return code {{ grub_update_result.rc }}."
+      when: grub_update_result is defined and grub_update_result.rc is defined and grub_update_result.rc != 0
 
     - name: Reboot the server to apply the new kernel
       ansible.builtin.reboot:
