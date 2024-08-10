@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Check the current kernel version
+kernel_version=$(uname -r)
+
+# Display the kernel version
+echo "The current kernel version is: $kernel_version"
