@@ -12,16 +12,32 @@
     - name: Get the latest available kernel version from linux-image-generic
       shell: apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
       register: latest_kernel_version
-      failed_when: latest_kernel_version.stdout is undefined
+      changed_when: false
+
+    - name: Debug latest available kernel version
+      debug:
+        msg: "Latest available kernel version: {{ latest_kernel_version.stdout }}"
+      when: latest_kernel_version.stdout is defined
+
+    - name: Fail if latest kernel version is not found
+      ansible.builtin.fail:
+        msg: "Failed to determine the latest available kernel version."
+      when: latest_kernel_version.stdout is undefined
 
     - name: Get the currently running kernel version
       command: uname -r
       register: current_kernel_version
-      failed_when: current_kernel_version.stdout is undefined
+      changed_when: false
 
-    - name: Display kernel versions
+    - name: Debug current running kernel version
       debug:
-        msg: "Current kernel: {{ current_kernel_version.stdout.strip() }}, Latest available kernel: {{ latest_kernel_version.stdout.strip() }}"
+        msg: "Current running kernel version: {{ current_kernel_version.stdout }}"
+      when: current_kernel_version.stdout is defined
+
+    - name: Fail if current kernel version is not found
+      ansible.builtin.fail:
+        msg: "Failed to determine the currently running kernel version."
+      when: current_kernel_version.stdout is undefined
 
     - name: Install the latest available kernel if not already installed
       apt:
@@ -44,11 +60,12 @@
     - name: Verify the running kernel after reboot
       command: uname -r
       register: running_kernel
-      failed_when: running_kernel.stdout is undefined
+      changed_when: false
 
     - name: Display the running kernel
       debug:
         msg: "The system is now running kernel version {{ running_kernel.stdout.strip() }}."
+      when: running_kernel.stdout is defined
 
     - name: Fail if the system is not running the latest kernel
       ansible.builtin.fail:
