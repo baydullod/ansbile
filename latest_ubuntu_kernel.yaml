@@ -29,8 +29,8 @@
 
     - name: Install the latest available kernel if not already installed
       apt:
-        name: "linux-image-{{ latest_kernel_version.stdout.strip().replace('.', '-') }}"
-        state: present
+        name: "linux-image-generic"
+        state: latest
       when: current_kernel_version.stdout.strip() not in latest_kernel_version.stdout.strip()
       register: kernel_installed
 
