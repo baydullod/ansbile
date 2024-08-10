@@ -1,28 +1,8 @@
 ---
-- name: Update and Upgrade the System
+- name: Check Hostname
   hosts: all
-  become: yes
-  gather_facts: yes
+  gather_facts: no
 
   tasks:
-    - name: Update the package list
-      ansible.builtin.apt:
-        update_cache: yes
-
-    - name: Upgrade all packages
-      ansible.builtin.apt:
-        upgrade: full
-
-    - name: Check if a reboot is required
-      ansible.builtin.shell: /usr/bin/needs-restarting -r || echo "No reboot required"
-      register: reboot_check
-      changed_when: false
-      failed_when: false
-
-    - name: Reboot the system if required
-      ansible.builtin.reboot:
-        msg: "Rebooting after upgrade"
-        pre_reboot_delay: 60
-        post_reboot_delay: 60
-        reboot_timeout: 3600
-      when: reboot_check.stdout.find("No reboot required") == -1
+    - name: Get hostname
+      ansible.builtin.command: hostname
