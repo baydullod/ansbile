@@ -1,5 +1,5 @@
 ---
-- name: Ensure the system is running the latest Ubuntu kernel
+- name: Install and run the latest Ubuntu kernel
   hosts: all
   become: yes
   gather_facts: no
@@ -9,37 +9,10 @@
       ansible.builtin.apt:
         update_cache: yes
 
-    - name: Get the latest available kernel package names
-      shell: |
-        apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
-      register: latest_kernel_version
-      changed_when: false
-
-    - name: Get the actual package names from the version string
-      shell: |
-        apt-cache madison linux-image-{{ latest_kernel_version.stdout.strip() }} | awk '{print $1}'
-      register: package_names
-      changed_when: false
-
-    - name: Debug the package names
-      debug:
-        msg: "Kernel package names: {{ package_names.stdout_lines }}"
-
-    - name: Get the currently running kernel version
-      command: uname -r
-      register: current_kernel_version
-      changed_when: false
-
-    - name: Debug the current running kernel version
-      debug:
-        msg: "Current running kernel version: {{ current_kernel_version.stdout.strip() }}"
-
-    - name: Install the latest available kernel
+    - name: Install the latest generic kernel package
       apt:
-        name: "{{ item }}"
-        state: present
-      loop: "{{ package_names.stdout_lines }}"
-      when: current_kernel_version.stdout.strip() not in latest_kernel_version.stdout.strip()
+        name: linux-image-generic
+        state: latest
       register: kernel_installed
 
     - name: Check if a reboot is required
@@ -64,5 +37,5 @@
 
     - name: Fail if the system is not running the latest kernel
       ansible.builtin.fail:
-        msg: "The system is not running the latest kernel version. Expected: {{ latest_kernel_version.stdout.strip() }}, but running: {{ running_kernel.stdout.strip() }}."
-      when: running_kernel.stdout.strip() != latest_kernel_version.stdout.strip()
+        msg: "The system is not running the latest kernel version. Expected: 5.15.0-118-generic, but running: {{ running_kernel.stdout.strip() }}."
+      when: running_kernel.stdout.strip() != "5.15.0-118-generic"
