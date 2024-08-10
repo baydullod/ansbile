@@ -1,13 +1,13 @@
 ---
-- name: Check Memory Usage
+- name: Check Uptime
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Run free command to check memory
-      ansible.builtin.command: free -m
-      register: memory_output
+    - name: Run uptime command
+      ansible.builtin.command: uptime
+      register: uptime_output
 
-    - name: Display memory usage
+    - name: Display uptime
       ansible.builtin.debug:
-        var: memory_output.stdout_lines
+        var: uptime_output.stdout_lines
