@@ -12,10 +12,17 @@
     - name: Get the latest available kernel version
       shell: apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
       register: latest_kernel_version
+      failed_when: latest_kernel_version.stdout is undefined
+
+    - name: Fail if latest kernel version is not found
+      ansible.builtin.fail:
+        msg: "Failed to determine the latest available kernel version."
+      when: latest_kernel_version.stdout is undefined
 
     - name: Get the currently running kernel version
       command: uname -r
       register: current_kernel_version
+      failed_when: current_kernel_version.stdout is undefined
 
     - name: Display kernel versions
       debug:
@@ -42,6 +49,7 @@
     - name: Verify the running kernel after reboot
       command: uname -r
       register: running_kernel
+      failed_when: running_kernel.stdout is undefined
 
     - name: Display the running kernel
       debug:
