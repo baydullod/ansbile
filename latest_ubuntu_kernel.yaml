@@ -10,12 +10,14 @@
         update_cache: yes
 
     - name: Run apt-cache madison for linux-image-generic
-      shell: apt-cache madison linux-image-generic
+      command: apt-cache madison linux-image-generic
       register: raw_kernel_info
+      ignore_errors: yes
 
     - name: Display raw kernel version information
       debug:
         msg: "Raw kernel version info: {{ raw_kernel_info.stdout }}"
+      when: raw_kernel_info.stdout is defined
 
     - name: Fail if raw kernel info is not found
       ansible.builtin.fail:
@@ -23,8 +25,9 @@
       when: raw_kernel_info.stdout is undefined or raw_kernel_info.stdout == ""
 
     - name: Extract the latest available kernel version
-      shell: echo "{{ raw_kernel_info.stdout }}" | awk '{print $3}' | sort -V | tail -n 1
+      command: "echo '{{ raw_kernel_info.stdout }}' | awk '{print $3}' | sort -V | tail -n 1"
       register: latest_kernel_version
+      ignore_errors: yes
 
     - name: Display the extracted latest kernel version
       debug:
