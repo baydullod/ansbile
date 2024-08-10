@@ -13,6 +13,12 @@
       shell: apt-cache madison linux-image-generic | awk '{print $3}' | sort -V | tail -n 1
       register: latest_kernel_version
       changed_when: false
+      failed_when: latest_kernel_version.stdout is undefined
+
+    - name: Fail if latest kernel version is not found
+      ansible.builtin.fail:
+        msg: "Failed to determine the latest available kernel version."
+      when: latest_kernel_version.stdout is undefined
 
     - name: Debug latest available kernel version
       debug:
