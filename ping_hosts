@@ -1,7 +1,20 @@
 ---
-- name: Ping all hosts
+- name: Perform a distribution upgrade
   hosts: all
-  gather_facts: no
+  become: yes
   tasks:
-    - name: Ping the hosts
-      ansible.builtin.ping:
+    - name: Update the package list
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: Reboot the system if a kernel update is applied
+      ansible.builtin.reboot:
+        msg: "Rebooting after kernel update"
+        pre_reboot_delay: 60
+        post_reboot_delay: 60
+        reboot_timeout: 3600
+      when: ansible_facts['ansible_kernel'] != "{{ ansible_facts['ansible_kernel'] }}"
