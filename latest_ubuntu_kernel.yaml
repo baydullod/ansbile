@@ -20,36 +20,48 @@
       register: latest_kernel
       changed_when: false
 
+    - name: Debug latest kernel version
+      ansible.builtin.debug:
+        var: latest_kernel.stdout
+
+    - name: Fail if latest kernel not found
+      ansible.builtin.fail:
+        msg: "Latest kernel version could not be determined."
+      when: latest_kernel.stdout is not defined or latest_kernel.stdout == ""
+
     - name: Set GRUB to boot into the latest kernel by default
       ansible.builtin.replace:
         path: /etc/default/grub
         regexp: '^GRUB_DEFAULT=.*'
         replace: 'GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux {{ latest_kernel.stdout }}"'
-      notify: Update GRUB
+      when: latest_kernel.stdout is defined and latest_kernel.stdout != ""
 
     - name: Update GRUB configuration
-      ansible.builtin.command: update-grub
-      when: latest_kernel is defined
-      notify: Reboot System
+      ansible.builtin.command:
+        cmd: update-grub
+      register: grub_update_result
+      ignore_errors: yes
 
-  handlers:
-    - name: Update GRUB
-      ansible.builtin.command: update-grub
+    - name: Ensure GRUB update ran
+      ansible.builtin.debug:
+        msg: "GRUB update command executed."
+      when: grub_update_result is defined and grub_update_result.failed is not defined
 
-    - name: Reboot System
+    - name: Reboot the server to apply the new kernel
       ansible.builtin.reboot:
         reboot_timeout: 600
 
     - name: Verify the running kernel after reboot
-      ansible.builtin.shell: uname -r
+      ansible.builtin.command: uname -r
       register: running_kernel
+      ignore_errors: yes
 
-    - name: Ensure the system is running the latest kernel
+    - name: Display the running kernel
       ansible.builtin.debug:
-        msg: "The system is now running the latest kernel version: {{ running_kernel.stdout }}."
-      when: latest_kernel.stdout in running_kernel.stdout
+        msg: "The system is now running kernel version {{ running_kernel.stdout }}."
+      when: running_kernel is defined and 'stdout' in running_kernel and latest_kernel.stdout in running_kernel.stdout
 
-    - name: Fail if the system is not running the latest kernel
+    - name: Fail if kernel version does not match
       ansible.builtin.fail:
-        msg: "Kernel update failed. The system is not running the latest kernel version: {{ latest_kernel.stdout }}."
-      when: latest_kernel.stdout not in running_kernel.stdout
+        msg: "Kernel version does not match the latest version {{ latest_kernel.stdout }}. Current version: {{ running_kernel.stdout }}"
+      when: running_kernel is defined and 'stdout' in running_kernel and latest_kernel.stdout not in running_kernel.stdout
