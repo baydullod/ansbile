@@ -15,10 +15,22 @@
         reboot_timeout: 600
 
     - name: Verify the running kernel after reboot
-      ansible.builtin.shell: uname -r
+      ansible.builtin.command:
+        cmd: uname -r
       register: running_kernel
+      ignore_errors: yes
+
+    - name: Ensure kernel version was captured
+      ansible.builtin.debug:
+        msg: "Kernel version after reboot: {{ running_kernel.stdout }}"
+      when: running_kernel is defined and 'stdout' in running_kernel
 
     - name: Display the running kernel
       ansible.builtin.debug:
         msg: "The system is now running kernel version {{ running_kernel.stdout }}."
-      when: target_kernel_version in running_kernel.stdout
+      when: running_kernel is defined and 'stdout' in running_kernel and target_kernel_version in running_kernel.stdout
+
+    - name: Fail if kernel version does not match
+      ansible.builtin.fail:
+        msg: "Kernel version does not match the target version {{ target_kernel_version }}."
+      when: running_kernel is defined and 'stdout' in running_kernel and target_kernel_version not in running_kernel.stdout
