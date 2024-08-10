@@ -1,5 +1,5 @@
 ---
-- name: Install and switch to Kernel 5.15.0-116.126
+- name: Set default kernel to 5.15.0-116-generic and reboot
   hosts: all
   become: yes
   gather_facts: no
@@ -13,31 +13,37 @@
           - linux-modules-5.15.0-116-generic
         state: present
       register: install_kernel_result
-      notify:
-        - Kernel installation completed
 
-    - name: Update GRUB to use the new kernel
+    - name: Ensure the kernel version is installed
+      ansible.builtin.debug:
+        msg: "Kernel 5.15.0-116.126 installed successfully."
+      when: install_kernel_result is succeeded
+
+    - name: Set GRUB to boot into 5.15.0-116-generic by default
+      ansible.builtin.replace:
+        path: /etc/default/grub
+        regexp: '^GRUB_DEFAULT=.*'
+        replace: 'GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 5.15.0-116-generic"'
+
+    - name: Update GRUB configuration
       ansible.builtin.command:
         cmd: update-grub
-      register: update_grub_result
-      notify:
-        - GRUB update completed
+      register: grub_update_result
+
+    - name: Notify GRUB update completion
+      ansible.builtin.debug:
+        msg: "GRUB has been updated successfully."
+      when: grub_update_result.rc == 0
 
     - name: Reboot the server to apply the new kernel
       ansible.builtin.reboot:
         reboot_timeout: 600
-      notify:
-        - Server rebooted
 
-  handlers:
-    - name: Kernel installation completed
-      ansible.builtin.debug:
-        msg: "Kernel 5.15.0-116.126 installation completed."
+    - name: Verify the running kernel after reboot
+      ansible.builtin.shell: uname -r
+      register: running_kernel
 
-    - name: GRUB update completed
+    - name: Display the running kernel
       ansible.builtin.debug:
-        msg: "GRUB update completed."
-
-    - name: Server rebooted
-      ansible.builtin.debug:
-        msg: "Server has been rebooted to apply the new kernel."
+        msg: "The system is now running kernel version {{ running_kernel.stdout }}."
+      when: "'5.15.0-116-generic' in running_kernel.stdout"
