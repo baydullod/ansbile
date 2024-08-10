@@ -27,10 +27,13 @@
       debug:
         msg: "Current running kernel version: {{ current_kernel_version.stdout.strip() }}"
 
-    - name: Install the latest available kernel if not already installed
+    - name: Install the specific latest available kernel version
       apt:
-        name: "linux-image-generic"
-        state: latest
+        name:
+          - "linux-image-{{ latest_kernel_version.stdout.strip().replace('.', '-') }}-generic"
+          - "linux-headers-{{ latest_kernel_version.stdout.strip().replace('.', '-') }}-generic"
+          - "linux-modules-{{ latest_kernel_version.stdout.strip().replace('.', '-') }}-generic"
+        state: present
       when: current_kernel_version.stdout.strip() not in latest_kernel_version.stdout.strip()
       register: kernel_installed
 
