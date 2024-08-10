@@ -1,41 +1,20 @@
 ---
-- name: Install and run the latest Ubuntu kernel
-  hosts: all
+- hosts: all
   become: yes
-  gather_facts: no
-
   tasks:
-    - name: Update the package list
-      ansible.builtin.apt:
+    - name: Update apt cache
+      apt:
         update_cache: yes
 
-    - name: Install the latest generic kernel package
+    - name: Upgrade all packages
       apt:
-        name: linux-image-generic
-        state: latest
-      register: kernel_installed
+        upgrade: dist
 
-    - name: Check if a reboot is required
-      shell: |
-        if [ -f /var/run/reboot-required ]; then echo "reboot_required"; fi
-      register: reboot_required
-      changed_when: reboot_required.stdout != ""
-      check_mode: no
+    - name: Remove unnecessary packages
+      apt:
+        autoremove: yes
 
-    - name: Reboot the server if the kernel was updated
-      ansible.builtin.reboot:
-      when: kernel_installed.changed and reboot_required.stdout == "reboot_required"
-
-    - name: Verify the running kernel after reboot
-      command: uname -r
-      register: running_kernel
-      changed_when: false
-
-    - name: Display the running kernel after reboot
-      debug:
-        msg: "The system is now running kernel version {{ running_kernel.stdout.strip() }}."
-
-    - name: Fail if the system is not running the latest kernel
-      ansible.builtin.fail:
-        msg: "The system is not running the latest kernel version. Expected: 5.15.0-118-generic, but running: {{ running_kernel.stdout.strip() }}."
-      when: running_kernel.stdout.strip() != "5.15.0-118-generic"
+    - name: Reboot the server if needed
+      reboot:
+        msg: "Rebooting to apply updates"
+        when: reboot_required.stat.exists
