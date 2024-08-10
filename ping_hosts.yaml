@@ -5,7 +5,6 @@
   gather_facts: no
 
   tasks:
-    - name: Notify: Starting the process
+    - name: Simple debug message
       ansible.builtin.debug:
-        msg: "Starting the process"
-        
+        msg: "This is a test playbook"
