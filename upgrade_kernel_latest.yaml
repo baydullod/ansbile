@@ -1,9 +1,10 @@
 ---
 - hosts: all
   become: yes
+  gather_facts: no
   vars:
     script_url: "https://raw.githubusercontent.com/baydullod/ansbile/main/upgrade_kernel_latest.sh"
-    script_path: "/tmp/upgrade_kernel_latest.sh"  # Path to save the script on the remote machine
+    script_path: "/tmp/upgrade_kernel_latest.sh"
 
   tasks:
     - name: Ensure curl is installed
