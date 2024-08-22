@@ -1,0 +1,14 @@
+---
+- name: Gather Kernel Version Information
+  hosts: all
+  become: yes
+  gather_facts: false
+
+  tasks:
+    - name: Check kernel version
+      command: uname -r
+      register: kernel_version_output
+
+    - name: Show kernel version
+      debug:
+        msg: "Kernel version: {{ kernel_version_output.stdout }}"
