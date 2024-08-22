@@ -1,20 +1,12 @@
 ---
-- name: Perform a distribution upgrade
+- name: Check the hostname of all hosts
   hosts: all
-  become: yes
   tasks:
-    - name: Update the package list
-      ansible.builtin.apt:
-        update_cache: yes
+    - name: Get the hostname
+      ansible.builtin.command:
+        cmd: hostname
+      register: result
 
-    - name: Upgrade all packages
-      ansible.builtin.apt:
-        upgrade: dist
-
-    - name: Reboot the system if a kernel update is applied
-      ansible.builtin.reboot:
-        msg: "Rebooting after kernel update"
-        pre_reboot_delay: 60
-        post_reboot_delay: 60
-        reboot_timeout: 3600
-      when: ansible_facts['ansible_kernel'] != "{{ ansible_facts['ansible_kernel'] }}"
+    - name: Display the hostname
+      ansible.builtin.debug:
+        msg: "Hostname: {{ result.stdout }}"
