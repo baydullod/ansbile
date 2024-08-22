@@ -1,6 +1,7 @@
 ---
-- name: Check the hostname of all hosts
+- name: Check the hostname of all hosts without gathering facts
   hosts: all
+  gather_facts: no
   tasks:
     - name: Get the hostname
       ansible.builtin.command:
