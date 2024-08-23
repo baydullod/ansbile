@@ -1,5 +1,5 @@
 ---
-- name: Dynamic reboot and kernel version checks for multiple distributions
+- name: Dynamic reboot and kernel checks for Ubuntu
   hosts: all
   gather_facts: yes
 
@@ -20,22 +20,19 @@
         msg: "No reboot is required on Ubuntu."
       when: not reboot_required_ubuntu.stat.exists and ansible_distribution == "Ubuntu"
 
-    - name: Check if reboot is required (CentOS)
-      shell: needs-restarting -r | grep 'reboot is required'
-      register: reboot_required_centos
-      ignore_errors: true
-      when: ansible_distribution == "CentOS"
+    - name: Check for kernel updates (Ubuntu)
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      register: apt_update
+      when: ansible_distribution == "Ubuntu"
 
-    - name: Display reboot required message for CentOS
-      debug:
-        msg: "Reboot is required on CentOS."
-      when: "reboot_required_centos.rc == 0 and ansible_distribution == 'CentOS' and reboot_required_centos is defined"
+    - name: Search for new kernel packages
+      shell: apt list --upgradable | grep linux-image
+      register: kernel_upgrade
+      when: ansible_distribution == "Ubuntu" and apt_update.changed
 
-    - name: Display no reboot required message for CentOS
+    - name: Display current kernel version if an upgrade is available
       debug:
-        msg: "No reboot is required on CentOS."
-      when: "reboot_required_centos.rc != 0 and ansible_distribution == 'CentOS' and reboot_required_centos is defined"
-
-    - name: Display current kernel version
-      debug:
-        msg: "Current kernel version on {{ inventory_hostname }} is {{ ansible_kernel }}"
+        msg: "Current kernel version {{ ansible_kernel }} is upgradable. Upgrade available: {{ kernel_upgrade.stdout }}"
+      when: kernel_upgrade.stdout != "" and ansible_distribution == "Ubuntu"
