@@ -28,17 +28,20 @@
         msg: "Apache2 package installed successfully."
       when: install_apache_result.changed
 
-    - name: "Step 3: Ensure Apache2 is running"
-      service:
+    - name: "Step 3: Ensure Apache2 is active and enabled"
+      systemd:
         name: apache2
         state: started
         enabled: yes
       when: ansible_facts['os_family'] == "Debian"
       register: apache_service_result
 
-    - name: "Notify: Apache2 service is running"
+    - name: "Notify: Apache2 service status"
       debug:
-        msg: "Apache2 service is running and enabled to start on boot."
+        msg: >
+          Apache2 service status:
+          Active: {{ apache_service_result.status.active }}
+          Enabled: {{ apache_service_result.status.enabled }}
       when: apache_service_result.changed
 
     - name: "Step 4: Check Apache2 version"
@@ -49,8 +52,11 @@
     - name: "Notify: Apache2 version"
       debug:
         msg: "Apache2 version installed: {{ apache_version.stdout }}"
-      when: apache_version.changed
 
     - name: "Completion: Apache2 installation and configuration completed"
       debug:
-        msg: "Apache2 has been successfully installed, configured, and started on all target hosts. Version: {{ apache_version.stdout }}"
+        msg: >
+          Apache2 has been successfully installed, configured, and verified on all target hosts.
+          Version: {{ apache_version.stdout.strip() }}
+          Active: {{ apache_service_result.status.active }}
+          Enabled: {{ apache_service_result.status.enabled }}
