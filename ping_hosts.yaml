@@ -1,5 +1,6 @@
 ---
 - name: Run tasks without requiring sudo
+  hosts: all
   tasks:
     - name: Print the current working directory
       command: pwd
