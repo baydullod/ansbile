@@ -1,47 +1,36 @@
 ---
-- name: Check if server needs a restart
+- name: Check reboot and kernel version across different distros
   hosts: all
-  become: yes
+  gather_facts: yes  # This is crucial to gather system information
+
   tasks:
-    - name: Check if reboot-required file exists (Debian/Ubuntu)
+    - name: Check if reboot is required (Ubuntu/Debian)
       stat:
         path: /var/run/reboot-required
-      register: reboot_required_file_debian
+      register: reboot_required_file
       when: ansible_os_family == "Debian"
 
-    - name: Check for pending kernel updates (RedHat/CentOS)
-      command: needs-restarting -r
-      register: reboot_required_command_redhat
-      failed_when: false
-      changed_when: false
+    - name: Display reboot required for Ubuntu/Debian
+      debug:
+        msg: "Reboot is required on Ubuntu/Debian."
+      when: reboot_required_file.stat.exists
+
+    - name: Check if reboot is required (RedHat/CentOS)
+      shell: needs-restarting -r | grep 'reboot is required'
+      register: reboot_required_command
+      ignore_errors: true
       when: ansible_os_family == "RedHat"
 
-    - name: Check for pending reboot using systemctl (generic Linux check)
-      command: systemctl is-system-running
-      register: systemctl_status
-      failed_when: false
-      changed_when: false
+    - name: Display reboot required for RedHat/CentOS
+      debug:
+        msg: "Reboot is required on RedHat/CentOS."
+      when: reboot_required_command.rc == 0
+
+    - name: Display current kernel version
+      debug:
+        msg: "Current kernel version is {{ ansible_kernel }}"
+    
+    - name: Skip message for unsupported distributions
+      debug:
+        msg: "This distribution is not supported for specific reboot checks."
       when: ansible_os_family not in ["Debian", "RedHat"]
-
-    - name: Determine if reboot is needed (Debian/Ubuntu)
-      debug:
-        msg: "Server {{ inventory_hostname }} (Debian/Ubuntu) requires a reboot."
-      when: reboot_required_file_debian.stat.exists
-
-    - name: Determine if reboot is needed (RedHat/CentOS)
-      debug:
-        msg: "Server {{ inventory_hostname }} (RedHat/CentOS) requires a reboot."
-      when: reboot_required_command_redhat.stdout != ""
-
-    - name: Determine if systemctl indicates degraded state
-      debug:
-        msg: "Server {{ inventory_hostname }} requires a reboot based on systemctl status."
-      when: systemctl_status.stdout == "degraded"
-      
-    - name: Display message if no reboot is needed
-      debug:
-        msg: "Server {{ inventory_hostname }} does not require a reboot."
-      when:
-        - ansible_os_family == "Debian" and not reboot_required_file_debian.stat.exists
-        - ansible_os_family == "RedHat" and reboot_required_command_redhat.stdout == ""
-        - ansible_os_family not in ["Debian", "RedHat"] and systemctl_status.stdout != "degraded"
