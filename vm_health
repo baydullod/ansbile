@@ -1,0 +1,42 @@
+---
+- name: Check VM health and status
+  hosts: all
+  become: yes
+  tasks:
+    - name: Check disk usage
+      command: df -h /
+      register: disk_usage
+      changed_when: false
+
+    - name: Output disk usage
+      debug:
+        msg: "{{ disk_usage.stdout_lines }}"
+
+    - name: Check memory usage
+      command: free -m
+      register: memory_usage
+      changed_when: false
+
+    - name: Output memory usage
+      debug:
+        msg: "{{ memory_usage.stdout_lines }}"
+
+    - name: Check CPU load
+      command: uptime
+      register: cpu_load
+      changed_when: false
+
+    - name: Output CPU load
+      debug:
+        msg: "{{ cpu_load.stdout_lines }}"
+
+    - name: Check network connectivity to a reliable host
+      command: ping -c 4 google.com
+      register: ping_result
+      changed_when: false
+      ignore_errors: true
+
+    - name: Output ping results
+      debug:
+        msg: "{{ ping_result.stdout_lines if not ping_result.failed else 'Ping failed' }}"
+
