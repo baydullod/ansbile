@@ -2,7 +2,7 @@
 - name: Dynamic reboot and kernel version checks for Ubuntu
   hosts: all
   gather_facts: yes
-  become: yes  # This line ensures tasks are run with superuser privileges
+  become: yes  # Ensure superuser privileges
 
   tasks:
     - name: Check if reboot is required (Ubuntu)
@@ -25,14 +25,21 @@
       apt:
         update_cache: yes
         cache_valid_time: 3600
+      register: apt_update
       when: ansible_distribution == "Ubuntu"
+      changed_when: true  # Ensure apt_update is always defined
 
     - name: Search for new kernel packages
       shell: apt list --upgradable | grep linux-image
       register: kernel_upgrade
-      when: ansible_distribution == "Ubuntu" and apt_update.changed
+      when:
+        - ansible_distribution == "Ubuntu"
+        - apt_update is defined
+        - apt_update.changed
 
     - name: Display current kernel version if an upgrade is available
       debug:
         msg: "Current kernel version {{ ansible_kernel }} is upgradable. Upgrade available: {{ kernel_upgrade.stdout }}"
-      when: kernel_upgrade.stdout != "" and ansible_distribution == "Ubuntu"
+      when:
+        - kernel_upgrade.stdout != ""
+        - ansible_distribution == "Ubuntu"
