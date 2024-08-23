@@ -1,36 +1,31 @@
 ---
-- name: Check reboot and kernel version across different distros
+- name: Dynamic reboot and kernel version checks for multiple distributions
   hosts: all
-  gather_facts: yes  # This is crucial to gather system information
+  gather_facts: yes
 
   tasks:
-    - name: Check if reboot is required (Ubuntu/Debian)
+    - name: Check if reboot is required (Ubuntu)
       stat:
         path: /var/run/reboot-required
-      register: reboot_required_file
-      when: ansible_os_family == "Debian"
+      register: reboot_required_ubuntu
+      when: ansible_distribution == "Ubuntu"
 
-    - name: Display reboot required for Ubuntu/Debian
+    - name: Display reboot required message for Ubuntu
       debug:
-        msg: "Reboot is required on Ubuntu/Debian."
-      when: reboot_required_file.stat.exists
+        msg: "Reboot is required on Ubuntu."
+      when: reboot_required_ubuntu.stat.exists and ansible_distribution == "Ubuntu"
 
-    - name: Check if reboot is required (RedHat/CentOS)
+    - name: Check if reboot is required (CentOS)
       shell: needs-restarting -r | grep 'reboot is required'
-      register: reboot_required_command
+      register: reboot_required_centos
       ignore_errors: true
-      when: ansible_os_family == "RedHat"
+      when: ansible_distribution == "CentOS"
 
-    - name: Display reboot required for RedHat/CentOS
+    - name: Display reboot required message for CentOS
       debug:
-        msg: "Reboot is required on RedHat/CentOS."
-      when: reboot_required_command.rc == 0
+        msg: "Reboot is required on CentOS."
+      when: reboot_required_centos.rc == 0 and ansible_distribution == "CentOS"
 
     - name: Display current kernel version
       debug:
-        msg: "Current kernel version is {{ ansible_kernel }}"
-    
-    - name: Skip message for unsupported distributions
-      debug:
-        msg: "This distribution is not supported for specific reboot checks."
-      when: ansible_os_family not in ["Debian", "RedHat"]
+        msg: "Current kernel version on {{ inventory_hostname }} is {{ ansible_kernel }}"
