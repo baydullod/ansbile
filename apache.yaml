@@ -29,9 +29,9 @@
         - ansible_facts['os_family'] == "Debian"
         - "'apache2={{ apache2_version_debian }}' in apache2_versions.stdout"
 
-    - name: Ensure Apache2 is running
+    - name: Ensure Apache2 (or httpd) is running
       service:
-        name: apache2
+        name: "{{ ansible_facts['os_family'] == 'Debian' | ternary('apache2', 'httpd') }}"
         state: started
         enabled: yes
       when: ansible_facts['os_family'] == "Debian"
