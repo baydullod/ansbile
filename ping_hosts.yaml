@@ -1,13 +1,5 @@
----
-- name: Check the hostname of all hosts without gathering facts
-  hosts: all
-  gather_facts: no
+- hosts: localhost
+  become: true
   tasks:
-    - name: Get the hostname
-      ansible.builtin.command:
-        cmd: hostname
-      register: result
-
-    - name: Display the hostname
-      ansible.builtin.debug:
-        msg: "Hostname: {{ result.stdout }}"
+    - name: Example task
+      command: whoami
