@@ -1,6 +1,5 @@
 ---
 - name: Run tasks without requiring sudo
-  hosts: localhost
   tasks:
     - name: Print the current working directory
       command: pwd
