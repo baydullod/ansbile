@@ -1,37 +1,25 @@
 ---
-- name: Check and Install Apache2 on Debian/Ubuntu
+- name: Install Apache2 on Debian/Ubuntu
   hosts: all
   become: yes
-  vars:
-    apache2_version_debian: "2.4.52-1ubuntu4.6"
 
   tasks:
-    - name: Check available Apache2 versions on Debian/Ubuntu
-      shell: "apt-cache madison apache2"
-      register: apache2_versions
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Display available Apache2 versions
-      debug:
-        var: apache2_versions.stdout_lines
-      when: ansible_facts['os_family'] == "Debian"
-
-    - name: Update apt cache (Debian/Ubuntu)
+    - name: Update apt cache
       apt:
         update_cache: yes
       when: ansible_facts['os_family'] == "Debian"
 
-    - name: Install the specific version of Apache2
+    - name: Install Apache2 package
       apt:
-        name: "apache2={{ apache2_version_debian }}"
+        name: apache2
         state: present
-      when: 
-        - ansible_facts['os_family'] == "Debian"
-        - apache2_version_debian in apache2_versions.stdout
+        force: yes
+        install_recommends: yes
+      when: ansible_facts['os_family'] == "Debian"
 
     - name: Ensure Apache2 is running
       service:
-        name: "apache2"
+        name: apache2
         state: started
         enabled: yes
       when: ansible_facts['os_family'] == "Debian"
