@@ -1,5 +1,13 @@
-- hosts: localhost
-  become: true
+---
+- name: Run tasks without requiring sudo
+  hosts: localhost
   tasks:
-    - name: Example task
-      command: whoami
+    - name: Print the current working directory
+      command: pwd
+
+    - name: List files in the home directory
+      command: ls -la ~
+
+    - name: Display a message
+      debug:
+        msg: "This task does not require sudo!"
