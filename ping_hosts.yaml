@@ -1,6 +1,8 @@
 ---
 - name: Run tasks without requiring sudo
-  hosts: all
+  - hosts: all
+  vars:
+    ansible_ssh_common_args: '-o ControlMaster=no'
   tasks:
     - name: Print the current working directory
       command: pwd
