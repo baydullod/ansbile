@@ -1,7 +1,8 @@
 ---
-- name: Dynamic reboot and kernel checks for Ubuntu
+- name: Dynamic reboot and kernel version checks for Ubuntu
   hosts: all
   gather_facts: yes
+  become: yes  # This line ensures tasks are run with superuser privileges
 
   tasks:
     - name: Check if reboot is required (Ubuntu)
@@ -20,11 +21,10 @@
         msg: "No reboot is required on Ubuntu."
       when: not reboot_required_ubuntu.stat.exists and ansible_distribution == "Ubuntu"
 
-    - name: Check for kernel updates (Ubuntu)
+    - name: Update APT cache
       apt:
         update_cache: yes
         cache_valid_time: 3600
-      register: apt_update
       when: ansible_distribution == "Ubuntu"
 
     - name: Search for new kernel packages
