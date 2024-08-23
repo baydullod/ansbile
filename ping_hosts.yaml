@@ -1,6 +1,7 @@
 ---
 - name: Run tasks without requiring sudo
-  hosts: all  # Corrected indentation
+  hosts: all
+  gather_facts: no
   vars:
     ansible_ssh_common_args: '-o ControlMaster=no'
   tasks:
