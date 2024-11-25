@@ -1,0 +1,34 @@
+---
+- name: Create user and group, manage passwords, and update the system
+  hosts: linux_servers
+  become: yes
+  tasks:
+    - name: Copy bash script to the remote machine
+      ansible.builtin.copy:
+        src: create_user_group.sh
+        dest: /tmp/create_user_group.sh
+        mode: '0755'
+      register: copy_script_result
+
+    - name: Execute bash script
+      ansible.builtin.shell:
+        cmd: /tmp/create_user_group.sh
+      register: script_execution_result
+
+    - name: Remove the bash script from the remote machine after execution
+      ansible.builtin.file:
+        path: /tmp/create_user_group.sh
+        state: absent
+      register: script_removal_result
+
+    - name: Show the result of the script copy
+      ansible.builtin.debug:
+        var: copy_script_result
+
+    - name: Show the result of the script execution
+      ansible.builtin.debug:
+        var: script_execution_result
+
+    - name: Show the result of script removal
+      ansible.builtin.debug:
+        var: script_removal_result
