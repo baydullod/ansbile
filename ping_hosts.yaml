@@ -37,10 +37,17 @@
       register: ansible_directory
       ignore_errors: true
 
+    - name: Ensure Ansible uses the virtualenv python interpreter
+      lineinfile:
+        path: /etc/ansible/ansible.cfg
+        regexp: '^#?ansible_python_interpreter'
+        line: "ansible_python_interpreter = /semaphore/ansible-venv/bin/python3"
+        create: yes
+
     - name: Output results
       debug:
         msg:
           - "Python Version: {{ python_version.stdout if python_version.stdout is defined else 'not installed' }}"
           - "Ansible Version: {{ ansible_version.stdout if ansible_version.stdout is defined else 'Ansible not found in ansible-venv' }}"
-          - "Python Installation Directory: {{ python_directory.stdout if python_directory.stdout is defined else 'Python not found' }}"
-          - "Ansible Installation Directory: {{ ansible_directory.stdout if ansible_directory.stdout is defined else 'Ansible not found' }}"
+          - "Python Installation Directory: {{ python_directory.stdout if python_directory.stdout is defined else 'Python not found in ansible-venv' }}"
+          - "Ansible Installation Directory: {{ ansible_directory.stdout if ansible_directory.stdout is defined else 'Ansible not found in ansible-venv' }}"
