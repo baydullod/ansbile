@@ -17,6 +17,13 @@
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Ensure Ansible uses the virtualenv python interpreter
+      lineinfile:
+        path: /etc/ansible/ansible.cfg
+        regexp: '^#?ansible_python_interpreter'
+        line: "ansible_python_interpreter = /semaphore/ansible-venv/bin/python3"
+        create: yes
+
     - name: Check Python version in ansible-venv
       command: /semaphore/ansible-venv/bin/python3 --version
       register: python_version
@@ -36,13 +43,6 @@
       command: which /semaphore/ansible-venv/bin/ansible
       register: ansible_directory
       ignore_errors: true
-
-    - name: Ensure Ansible uses the virtualenv python interpreter
-      lineinfile:
-        path: /etc/ansible/ansible.cfg
-        regexp: '^#?ansible_python_interpreter'
-        line: "ansible_python_interpreter = /semaphore/ansible-venv/bin/python3"
-        create: yes
 
     - name: Output results
       debug:
