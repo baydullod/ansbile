@@ -1,0 +1,73 @@
+---
+- name: Verify Semaphore Environment Setup
+  hosts: localhost
+  tasks:
+
+    # Check Python Version
+    - name: Verify Python version
+      command: python3 --version
+      register: python_version
+    - debug:
+        msg: "Python Version: {{ python_version.stdout }}"
+
+    # Check if Virtual Environment is Active
+    - name: Verify virtual environment Python path
+      command: which python3
+      register: python_path
+    - debug:
+        msg: "Python Path: {{ python_path.stdout }}"
+
+    # Check Installed Python Dependencies
+    - name: Verify installed Python dependencies
+      pip:
+        virtualenv: /home/semaphore/venv
+        virtualenv_command: python3 -m venv
+        state: present  # Ensure packages are installed
+        requirements: /etc/semaphore/requirements.txt
+
+    # Verify Ansible Collections
+    - name: Verify installed Ansible collections
+      ansible.builtin.command:
+        cmd: ansible-galaxy collection list
+      register: ansible_collections
+    - debug:
+        msg: "Installed Collections:\n{{ ansible_collections.stdout }}"
+
+    # Verify Azure CLI Installation
+    - name: Verify Azure CLI installation
+      command: az --version
+      register: azure_version
+      failed_when: azure_version.rc != 0
+    - debug:
+        msg: "Azure CLI Version:\n{{ azure_version.stdout }}"
+
+    # Verify AWS CLI Installation
+    - name: Verify AWS CLI installation
+      command: aws --version
+      register: aws_version
+      failed_when: aws_version.rc != 0
+    - debug:
+        msg: "AWS CLI Version: {{ aws_version.stdout }}"
+
+    # Verify VMware Python Library
+    - name: Verify VMware Python library installation
+      command: python3 -c "import pyvmomi"
+      failed_when: false
+      register: vmware_lib_check
+    - debug:
+        msg: "VMware Library Installation Check: {{ vmware_lib_check.rc == 0 | ternary('Success', 'Failure') }}"
+
+    # Verify Docker CLI Installation
+    - name: Verify Docker CLI installation
+      command: docker --version
+      register: docker_version
+      failed_when: docker_version.rc != 0
+    - debug:
+        msg: "Docker Version: {{ docker_version.stdout }}"
+
+    # Check Ansible Configuration Path
+    - name: Verify ansible.cfg path
+      command: ansible --version
+      register: ansible_cfg
+    - debug:
+        msg: "Ansible Configuration File Path: {{ ansible_cfg.stdout | regex_search('ansible.cfg = (.+)') }}"
