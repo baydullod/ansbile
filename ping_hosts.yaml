@@ -22,7 +22,7 @@
       register: python_version
       ignore_errors: true
 
-    - name: Check Ansible version in ansible-venv
+    - name: Check Ansible version in ansible-venv using inline command
       command: /semaphore/ansible-venv/bin/ansible --version
       register: ansible_version
       ignore_errors: true
