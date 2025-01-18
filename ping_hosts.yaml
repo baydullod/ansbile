@@ -41,6 +41,6 @@
       debug:
         msg:
           - "Python Version: {{ python_version.stdout if python_version.stdout is defined else 'not installed' }}"
-          - "Ansible Version: {{ ansible_version.stdout if ansible_version.stdout is defined else 'not installed' }}"
-          - "Python Installation Directory: {{ python_directory.stdout if python_directory.stdout is defined else 'not found' }}"
-          - "Ansible Installation Directory: {{ ansible_directory.stdout if ansible_directory.stdout is defined else 'not found' }}"
+          - "Ansible Version: {{ ansible_version.stdout if ansible_version.stdout is defined else 'Ansible not found in ansible-venv' }}"
+          - "Python Installation Directory: {{ python_directory.stdout if python_directory.stdout is defined else 'Python not found' }}"
+          - "Ansible Installation Directory: {{ ansible_directory.stdout if ansible_directory.stdout is defined else 'Ansible not found' }}"
