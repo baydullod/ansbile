@@ -15,7 +15,7 @@
 ---
 - name: Check Python and Ansible versions and installation directories
   hosts: localhost
-  gather_facts: false
+  gather_facts: true
   tasks:
     - name: Check Python version
       command: python --version
