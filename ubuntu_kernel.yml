@@ -1,10 +1,16 @@
 - name: Verify Ansible version
-  command: ansible --version
-  register: ansible_version
-  failed_when: ansible_version.rc != 0
-- debug:
-    msg:
-      - "Ansible Version: {{ ansible_version.stdout_lines[0] }}"
-      - "Config File: {{ ansible_version.stdout | regex_search('config file = (.+)', '\\1') }}"
-      - "Python Location: {{ ansible_version.stdout | regex_search('ansible python module location = (.+)', '\\1') }}"
-      - "Executable Location: {{ ansible_version.stdout | regex_search('executable location = (.+)', '\\1') }}"
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Check Ansible version
+      command: ansible --version
+      register: ansible_version
+      failed_when: ansible_version.rc != 0
+
+    - name: Display Ansible version details
+      debug:
+        msg:
+          - "Ansible Version: {{ ansible_version.stdout_lines[0] | default('Unknown') }}"
+          - "Config File: {{ ansible_version.stdout | regex_search('config file = (.+)', '\\1') | default('Not Found') }}"
+          - "Python Location: {{ ansible_version.stdout | regex_search('ansible python module location = (.+)', '\\1') | default('Not Found') }}"
+          - "Executable Location: {{ ansible_version.stdout | regex_search('executable location = (.+)', '\\1') | default('Not Found') }}"
