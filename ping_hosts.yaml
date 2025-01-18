@@ -1,16 +1,14 @@
 ---
-- name: Run tasks without requiring sudo
-  hosts: all
-  gather_facts: no
-  vars:
-    ansible_ssh_common_args: '-o ControlMaster=no'
+- name: Check OS Type and Version on localhost
+  hosts: localhost
+  connection: local
   tasks:
-    - name: Print the current working directory
-      command: pwd
+    - name: Gather system facts
+      setup:
 
-    - name: List files in the home directory
-      command: ls -la ~
-
-    - name: Display a message
+    - name: Display the OS name and version
       debug:
-        msg: "This task does not require sudo!"
+        msg:
+          - "OS Name: {{ ansible_facts['os_family'] }}"
+          - "OS Version: {{ ansible_facts['distribution_version'] }}"
+          - "OS Type: {{ ansible_facts['distribution'] }}"
