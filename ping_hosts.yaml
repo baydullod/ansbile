@@ -15,39 +15,23 @@
 ---
 - name: Check Python and Ansible versions and installation directories in ansible-venv
   hosts: localhost
-  gather_facts: false
+  gather_facts: true
   tasks:
-    - name: Ensure Ansible uses the virtualenv python interpreter
-      lineinfile:
-        path: /etc/ansible/ansible.cfg
-        regexp: '^#?ansible_python_interpreter'
-        line: "ansible_python_interpreter = /semaphore/ansible-venv/bin/python3"
-        create: yes
-
-    - name: Check Python version in ansible-venv
-      command: /semaphore/ansible-venv/bin/python3 --version
-      register: python_version
+    - name: Run inline bash script to check Python and Ansible versions
+      command: >
+        bash -c "
+          source /semaphore/ansible-venv/bin/activate &&
+          echo 'Python Version:' &&
+          /semaphore/ansible-venv/bin/python3 --version &&
+          echo 'Ansible Version:' &&
+          /semaphore/ansible-venv/bin/ansible --version &&
+          echo 'Python Installation Directory:' &&
+          which /semaphore/ansible-venv/bin/python3 &&
+          echo 'Ansible Installation Directory:' &&
+          which /semaphore/ansible-venv/bin/ansible"
+      register: result
       ignore_errors: true
 
-    - name: Check Ansible version in ansible-venv using inline command
-      command: /semaphore/ansible-venv/bin/ansible --version
-      register: ansible_version
-      ignore_errors: true
-
-    - name: Find Python installation directories in ansible-venv
-      command: which /semaphore/ansible-venv/bin/python3
-      register: python_directory
-      ignore_errors: true
-
-    - name: Find Ansible installation directories in ansible-venv
-      command: which /semaphore/ansible-venv/bin/ansible
-      register: ansible_directory
-      ignore_errors: true
-
-    - name: Output results
+    - name: Output the result of inline script
       debug:
-        msg:
-          - "Python Version: {{ python_version.stdout if python_version.stdout is defined else 'not installed' }}"
-          - "Ansible Version: {{ ansible_version.stdout if ansible_version.stdout is defined else 'Ansible not found in ansible-venv' }}"
-          - "Python Installation Directory: {{ python_directory.stdout if python_directory.stdout is defined else 'Python not found in ansible-venv' }}"
-          - "Ansible Installation Directory: {{ ansible_directory.stdout if ansible_directory.stdout is defined else 'Ansible not found in ansible-venv' }}"
+        msg: "{{ result.stdout }}"
