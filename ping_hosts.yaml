@@ -1,14 +1,58 @@
----
-- name: Check OS Type and Version on localhost
-  hosts: localhost
-  connection: local
-  tasks:
-    - name: Gather system facts
-      setup:
+# ---
+# - name: Check OS Type and Version on localhost
+#   hosts: localhost
+#   connection: local
+#   tasks:
+#     - name: Gather system facts
+#       setup:
 
-    - name: Display the OS name and version
+#     - name: Display the OS name and version
+#       debug:
+#         msg:
+#           - "OS Name: {{ ansible_facts['os_family'] }}"
+#           - "OS Version: {{ ansible_facts['distribution_version'] }}"
+#           - "OS Type: {{ ansible_facts['distribution'] }}"
+---
+- name: Check Python and Ansible versions and installation directories
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check Python version
+      command: python --version
+      register: python_version
+      ignore_errors: true
+
+    - name: Check Python3 version
+      command: python3 --version
+      register: python3_version
+      ignore_errors: true
+
+    - name: Check Ansible version
+      command: ansible --version
+      register: ansible_version
+      ignore_errors: true
+
+    - name: Find Python installation directories
+      command: which python
+      register: python_directory
+      ignore_errors: true
+
+    - name: Find Python3 installation directories
+      command: which python3
+      register: python3_directory
+      ignore_errors: true
+
+    - name: Find Ansible installation directories
+      command: which ansible
+      register: ansible_directory
+      ignore_errors: true
+
+    - name: Output results
       debug:
         msg:
-          - "OS Name: {{ ansible_facts['os_family'] }}"
-          - "OS Version: {{ ansible_facts['distribution_version'] }}"
-          - "OS Type: {{ ansible_facts['distribution'] }}"
+          - "Python Version: {{ python_version.stdout if python_version.stdout is defined else 'not installed' }}"
+          - "Python3 Version: {{ python3_version.stdout if python3_version.stdout is defined else 'not installed' }}"
+          - "Ansible Version: {{ ansible_version.stdout if ansible_version.stdout is defined else 'not installed' }}"
+          - "Python Installation Directory: {{ python_directory.stdout if python_directory.stdout is defined else 'not found' }}"
+          - "Python3 Installation Directory: {{ python3_directory.stdout if python3_directory.stdout is defined else 'not found' }}"
+          - "Ansible Installation Directory: {{ ansible_directory.stdout if ansible_directory.stdout is defined else 'not found' }}"
