@@ -1,19 +1,21 @@
 ---
-- name: Patch Ubuntu Linux VMs (Super Sysadmin Edition)
+- name: Patch and Maintain Ubuntu Linux VMs (Enhanced)
   hosts: all
   become: yes
-  gather_facts: yes  # Ensure all facts are collected for efficient decisions
+  gather_facts: yes  # Ensure system facts are gathered for decision-making
   tasks:
 
-    # Step 1: Update apt cache - Ensure that we have the most up-to-date package list
+    # Step 1: Update the APT cache to ensure the latest package list is available
     - name: Update apt cache
       apt:
         update_cache: yes
         cache_valid_time: 3600  # Cache validity for 1 hour
       tags:
         - update
+      register: apt_update_result
+      changed_when: apt_update_result.stdout != ''  # Only mark as changed if output is non-empty
 
-    # Step 2: Perform a full upgrade for installed packages
+    # Step 2: Upgrade all installed packages to the latest version
     - name: Upgrade all installed packages to the latest version
       apt:
         upgrade: dist
@@ -21,8 +23,10 @@
         autoremove: yes
       tags:
         - upgrade
+      register: apt_upgrade_result
+      changed_when: apt_upgrade_result.stdout != ''  # Ensure this task is marked as changed when packages are upgraded
 
-    # Step 3: Distribution upgrade - Ensuring a complete system upgrade
+    # Step 3: Perform a distribution upgrade (handling security and core system packages)
     - name: Perform a distribution upgrade
       apt:
         upgrade: dist
@@ -30,8 +34,10 @@
         autoclean: yes
       tags:
         - upgrade
+      register: dist_upgrade_result
+      changed_when: dist_upgrade_result.stdout != ''  # Only mark as changed if upgrades were performed
 
-    # Step 4: Clean up unused packages
+    # Step 4: Remove unused packages that are no longer required
     - name: Remove unused packages
       apt:
         name: "{{ item }}"
@@ -41,15 +47,19 @@
       when: ansible_facts.packages is defined
       tags:
         - clean
+      register: cleanup_result
+      changed_when: cleanup_result.stdout != ''  # Ensure cleanup only occurs if packages were actually removed
 
-    # Step 5: Clean up apt cache after upgrade to free space
-    - name: Clean up apt cache
+    # Step 5: Clean up APT cache to free up space
+    - name: Clean up apt cache after upgrade
       apt:
         autoclean: yes
       tags:
         - clean
+      register: apt_autoclean_result
+      changed_when: apt_autoclean_result.stdout != ''
 
-    # Step 6: Reboot system if kernel upgrade or other critical upgrades occurred
+    # Step 6: Ensure system reboot if kernel or critical package updates occurred
     - name: Reboot system if necessary
       reboot:
         msg: "Rebooting the system to apply kernel or critical package updates."
@@ -58,6 +68,8 @@
       when: ansible_facts.packages | selectattr('state', 'equalto', 'upgraded') | list | length > 0
       notify:
         - Reboot system
+      tags:
+        - reboot
 
     # Kernel checks to identify if we need a reboot for a new kernel
     - name: Display current kernel version
@@ -75,10 +87,10 @@
 
     # Step 7: Check installed kernels and filter for Azure-specific kernels
     - name: List installed Azure-specific kernels
-      shell: dpkg --list | grep 'linux-azure'
+      shell: dpkg-query --list | grep 'linux-azure'
       register: kernel_list
       changed_when: false
-      ignore_errors: true
+      ignore_errors: true  # Continue even if no kernels are found
       tags:
         - kernel
 
@@ -89,14 +101,16 @@
       tags:
         - kernel
 
-    # Step 8: If a new kernel is available, check if reboot is required
-    - name: Check for next kernel to be applied (based on Azure kernel)
+    # Step 8: Check for a new kernel and determine if a reboot is required
+    - name: Set next kernel to be applied
       set_fact:
         next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first }}"
+      tags:
+        - kernel
 
     - name: Check if reboot is required (based on new kernel)
       set_fact:
-        reboot_required: "{{ kernel_list.stdout_lines | length > 0 and current_kernel.stdout != next_kernel }}"
+        reboot_required: "{{ kernel_list.stdout_lines | length > 0 and kernel_version.stdout != next_kernel }}"
     
     - name: Show next kernel to be applied
       debug:
