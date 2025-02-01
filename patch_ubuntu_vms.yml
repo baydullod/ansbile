@@ -1,26 +1,37 @@
 ---
-- name: Patch Ubuntu Linux VMs
+- name: Patch Ubuntu Linux VMs (Super Sysadmin Edition)
   hosts: all
   become: yes
-  gather_facts: yes  # Ensure that facts are collected, including package facts
+  gather_facts: yes  # Ensure all facts are collected for efficient decisions
   tasks:
+
+    # Step 1: Update apt cache - Ensure that we have the most up-to-date package list
     - name: Update apt cache
       apt:
         update_cache: yes
-        cache_valid_time: 3600  # Cache valid for 1 hour
+        cache_valid_time: 3600  # Cache validity for 1 hour
+      tags:
+        - update
 
+    # Step 2: Perform a full upgrade for installed packages
     - name: Upgrade all installed packages to the latest version
       apt:
         upgrade: dist
         autoclean: yes
         autoremove: yes
+      tags:
+        - upgrade
 
+    # Step 3: Distribution upgrade - Ensuring a complete system upgrade
     - name: Perform a distribution upgrade
       apt:
         upgrade: dist
         autoremove: yes
         autoclean: yes
+      tags:
+        - upgrade
 
+    # Step 4: Clean up unused packages
     - name: Remove unused packages
       apt:
         name: "{{ item }}"
@@ -28,56 +39,81 @@
       loop:
         - "{{ ansible_facts.packages | selectattr('state', 'equalto', 'removed') | map(attribute='package') | list }}"
       when: ansible_facts.packages is defined
+      tags:
+        - clean
 
+    # Step 5: Clean up apt cache after upgrade to free space
     - name: Clean up apt cache
       apt:
         autoclean: yes
+      tags:
+        - clean
 
-    - name: Ensure the system is rebooted if necessary
+    # Step 6: Reboot system if kernel upgrade or other critical upgrades occurred
+    - name: Reboot system if necessary
       reboot:
-        msg: "Rebooting the server to complete updates"
+        msg: "Rebooting the system to apply kernel or critical package updates."
         reboot_timeout: 600
         test_command: uptime
       when: ansible_facts.packages | selectattr('state', 'equalto', 'upgraded') | list | length > 0
       notify:
-        - Reboot the system if required
+        - Reboot system
 
-    # Kernel version checks start here after patching
+    # Kernel checks to identify if we need a reboot for a new kernel
     - name: Display current kernel version
       command: uname -r
       register: kernel_version
       changed_when: false
+      tags:
+        - kernel
+
     - name: Show current kernel version
       debug:
         msg: "Current kernel version is: {{ kernel_version.stdout }}"
+      tags:
+        - kernel
 
+    # Step 7: Check installed kernels and filter for Azure-specific kernels
     - name: List installed Azure-specific kernels
       shell: dpkg --list | grep 'linux-azure'
       register: kernel_list
       changed_when: false
-      ignore_errors: true  # Ensure playbook continues even if no kernels are found
+      ignore_errors: true
+      tags:
+        - kernel
 
     - name: Debug output from kernel list
       debug:
         msg: "{{ kernel_list.stdout_lines }}"
+      when: kernel_list.stdout_lines | length > 0
+      tags:
+        - kernel
 
-    - name: Check if the next kernel is installed and pending
+    # Step 8: If a new kernel is available, check if reboot is required
+    - name: Check for next kernel to be applied (based on Azure kernel)
       set_fact:
         next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first }}"
 
-    - name: Check if reboot is required (pending kernel update)
+    - name: Check if reboot is required (based on new kernel)
       set_fact:
         reboot_required: "{{ kernel_list.stdout_lines | length > 0 and current_kernel.stdout != next_kernel }}"
     
     - name: Show next kernel to be applied
       debug:
         msg: "The next kernel to be applied is: {{ next_kernel | default('No new kernel available') }}"
+      tags:
+        - kernel
 
     - name: Show reboot required status
       debug:
         msg: "Reboot is required: {{ reboot_required }}"
+      tags:
+        - kernel
 
   handlers:
-    - name: Reboot the system if required
+    - name: Reboot system if required
       reboot:
         reboot_timeout: 600
+      when: reboot_required
+      tags:
+        - reboot
