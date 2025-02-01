@@ -2,6 +2,7 @@
 - name: Patch Ubuntu Linux VMs
   hosts: all
   become: yes
+  gather_facts: yes  # Ensure that facts are collected, including package facts
   tasks:
     - name: Update apt cache
       apt:
@@ -42,7 +43,7 @@
         msg: "Current kernel version is: {{ kernel_version.stdout }}"
 
     - name: List installed kernels
-      command: dpkg --list | grep linux-image
+      shell: dpkg --list | grep linux-image
       register: kernel_list
       changed_when: false
 
