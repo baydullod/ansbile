@@ -32,15 +32,6 @@
       apt:
         autoclean: yes
 
-    - name: Ensure the system is rebooted if necessary
-      reboot:
-        msg: "Rebooting the server to complete updates"
-        reboot_timeout: 600
-        test_command: uptime
-      when: ansible_facts.packages | selectattr('state', 'equalto', 'upgraded') | list | length > 0
-      notify:
-        - Reboot the system if required
-
     # Kernel version checks start here after patching
     - name: Display current kernel version
       command: uname -r
