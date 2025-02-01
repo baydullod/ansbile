@@ -150,4 +150,3 @@
         msg: "Final status: Reboot is {{ 'required' if reboot_required else 'NOT required' }}."
       tags:
         - reboot
-
