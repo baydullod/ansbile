@@ -1,145 +1,25 @@
----
-- name: Patch and Maintain Ubuntu Linux VMs (Enhanced)
-  hosts: all
-  become: yes
-  gather_facts: yes  # Ensure system facts are gathered for decision-making
-  tasks:
+# Step 9: Check for a new kernel and determine if a reboot is required
+- name: Set next kernel to be applied
+  set_fact:
+    next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first | default('No new kernel available') }}"
+  when: kernel_list.stdout_lines | length > 0
+  tags:
+    - kernel
 
-    # Step 1: Update the APT cache to ensure the latest package list is available
-    - name: Update apt cache
-      apt:
-        update_cache: yes
-        cache_valid_time: 3600  # Cache validity for 1 hour
-      tags:
-        - update
-      register: apt_update_result
-      changed_when: apt_update_result is not none and apt_update_result.changed
+- name: Debug next kernel to be applied
+  debug:
+    msg: "The next kernel to be applied is: {{ next_kernel }}"
+  tags:
+    - kernel
 
-    # Step 2: Upgrade all installed packages to the latest version
-    - name: Upgrade all installed packages to the latest version
-      apt:
-        upgrade: dist
-        autoclean: yes
-        autoremove: yes
-      tags:
-        - upgrade
-      register: apt_upgrade_result
-      changed_when: apt_upgrade_result is not none and apt_upgrade_result.changed
+- name: Check if reboot is required (based on new kernel)
+  set_fact:
+    reboot_required: "{{ kernel_list.stdout_lines | length > 0 and kernel_version.stdout != next_kernel }}"
+  tags:
+    - kernel
 
-    # Step 3: Perform a distribution upgrade (handling security and core system packages)
-    - name: Perform a distribution upgrade
-      apt:
-        upgrade: dist
-        autoremove: yes
-        autoclean: yes
-      tags:
-        - upgrade
-      register: dist_upgrade_result
-      changed_when: dist_upgrade_result is not none and dist_upgrade_result.changed
-
-    # Step 4: Remove unused packages that are no longer required
-    - name: Remove unused packages
-      apt:
-        name: "{{ item }}"
-        state: absent
-      loop:
-        - "{{ ansible_facts.packages | selectattr('state', 'equalto', 'removed') | map(attribute='package') | list }}"
-      when: ansible_facts.packages is defined
-      tags:
-        - clean
-      register: cleanup_result
-      changed_when: cleanup_result is not none and cleanup_result.changed
-
-    # Step 5: Clean up APT cache to free up space
-    - name: Clean up apt cache after upgrade
-      apt:
-        autoclean: yes
-      tags:
-        - clean
-      register: apt_autoclean_result
-      changed_when: apt_autoclean_result is not none and apt_autoclean_result.changed
-
-    # Step 6: Check if kernel upgrade or critical package update requires reboot
-    - name: Check if kernel upgrade or critical package update requires reboot
-      shell: |
-        current_kernel=$(uname -r)
-        latest_kernel=$(dpkg-query -W -f='${Version}' linux-azure | head -n 1)
-        if [ "$current_kernel" != "$latest_kernel" ]; then
-          echo "kernel_upgrade"
-        fi
-      register: reboot_needed
-      changed_when: false
-      failed_when: false
-      tags:
-        - reboot
-
-    # Step 7: Reboot system if necessary (kernel or critical package update)
-    - name: Reboot system if necessary (kernel or critical package update)
-      reboot:
-        msg: "Rebooting the system to apply kernel or critical package updates."
-        reboot_timeout: 600
-        test_command: uptime
-      when: reboot_needed.stdout == "kernel_upgrade"
-      tags:
-        - reboot
-
-    # Kernel checks to identify if we need a reboot for a new kernel
-    - name: Display current kernel version
-      command: uname -r
-      register: kernel_version
-      changed_when: false
-      tags:
-        - kernel
-
-    - name: Show current kernel version
-      debug:
-        msg: "Current kernel version is: {{ kernel_version.stdout }}"
-      tags:
-        - kernel
-
-    # Step 8: Check installed kernels and filter for Azure-specific kernels
-    - name: List installed Azure-specific kernels
-      shell: dpkg-query --list | grep 'linux-azure'
-      register: kernel_list
-      changed_when: false
-      ignore_errors: true  # Continue even if no kernels are found
-      tags:
-        - kernel
-
-    - name: Debug output from kernel list
-      debug:
-        msg: "{{ kernel_list.stdout_lines }}"
-      when: kernel_list.stdout_lines | length > 0
-      tags:
-        - kernel
-
-    # Step 9: Check for a new kernel and determine if a reboot is required
-    - name: Set next kernel to be applied
-      set_fact:
-        next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first }}"
-      tags:
-        - kernel
-
-    - name: Check if reboot is required (based on new kernel)
-      set_fact:
-        reboot_required: "{{ kernel_list.stdout_lines | length > 0 and kernel_version.stdout != next_kernel }}"
-    
-    - name: Show next kernel to be applied
-      debug:
-        msg: "The next kernel to be applied is: {{ next_kernel | default('No new kernel available') }}"
-      tags:
-        - kernel
-
-    - name: Show reboot required status
-      debug:
-        msg: "Reboot is required: {{ reboot_required }}"
-      tags:
-        - kernel
-
-  handlers:
-    - name: Reboot system if required
-      reboot:
-        reboot_timeout: 600
-      when: reboot_required
-      tags:
-        - reboot
+- name: Show reboot required status
+  debug:
+    msg: "Reboot is required: {{ reboot_required }}"
+  tags:
+    - kernel
