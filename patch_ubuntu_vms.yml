@@ -33,6 +33,15 @@
       apt:
         autoclean: yes
 
+    - name: Ensure the system is rebooted if necessary
+      reboot:
+        msg: "Rebooting the server to complete updates"
+        reboot_timeout: 600
+        test_command: uptime
+      when: ansible_facts.packages | selectattr('state', 'equalto', 'upgraded') | list | length > 0
+      notify:
+        - Reboot the system if required
+
     # Kernel version checks start here after patching
     - name: Display current kernel version
       command: uname -r
@@ -42,23 +51,23 @@
       debug:
         msg: "Current kernel version is: {{ kernel_version.stdout }}"
 
-    - name: List installed kernels
-      shell: dpkg --list | grep linux-image
+    - name: List installed Azure-specific kernels
+      shell: dpkg --list | grep 'linux-azure'
       register: kernel_list
       changed_when: false
+      ignore_errors: true  # Ensure playbook continues even if no kernels are found
 
-    - name: Get the latest kernel version
-      command: uname -r
-      register: current_kernel
-      changed_when: false
+    - name: Debug output from kernel list
+      debug:
+        msg: "{{ kernel_list.stdout_lines }}"
 
     - name: Check if the next kernel is installed and pending
       set_fact:
-        next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-image') | map('split', ' ') | map('last') | select('search', '^' + current_kernel.stdout | regex_replace('\\.', '\\\\.')) | first }}"
+        next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first }}"
 
     - name: Check if reboot is required (pending kernel update)
       set_fact:
-        reboot_required: "{{ current_kernel.stdout != next_kernel }}"
+        reboot_required: "{{ kernel_list.stdout_lines | length > 0 and current_kernel.stdout != next_kernel }}"
     
     - name: Show next kernel to be applied
       debug:
