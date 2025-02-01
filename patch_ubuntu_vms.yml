@@ -1,0 +1,82 @@
+---
+- name: Patch Ubuntu Linux VMs
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600  # Cache valid for 1 hour
+
+    - name: Upgrade all installed packages to the latest version
+      apt:
+        upgrade: dist
+        autoclean: yes
+        autoremove: yes
+
+    - name: Perform a distribution upgrade
+      apt:
+        upgrade: dist
+        autoremove: yes
+        autoclean: yes
+
+    - name: Remove unused packages
+      apt:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ ansible_facts.packages | selectattr('state', 'equalto', 'removed') | map(attribute='package') | list }}"
+      when: ansible_facts.packages is defined
+
+    - name: Clean up apt cache
+      apt:
+        autoclean: yes
+
+    - name: Ensure the system is rebooted if necessary
+      reboot:
+        msg: "Rebooting the server to complete updates"
+        reboot_timeout: 600
+        test_command: uptime
+      when: ansible_facts.packages | selectattr('state', 'equalto', 'upgraded') | list | length > 0
+      notify:
+        - Reboot the system if required
+
+    # Kernel version checks start here after patching
+    - name: Display current kernel version
+      command: uname -r
+      register: kernel_version
+      changed_when: false
+    - name: Show current kernel version
+      debug:
+        msg: "Current kernel version is: {{ kernel_version.stdout }}"
+
+    - name: List installed kernels
+      command: dpkg --list | grep linux-image
+      register: kernel_list
+      changed_when: false
+
+    - name: Get the latest kernel version
+      command: uname -r
+      register: current_kernel
+      changed_when: false
+
+    - name: Check if the next kernel is installed and pending
+      set_fact:
+        next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-image') | map('split', ' ') | map('last') | select('search', '^' + current_kernel.stdout | regex_replace('\\.', '\\\\.')) | first }}"
+
+    - name: Check if reboot is required (pending kernel update)
+      set_fact:
+        reboot_required: "{{ current_kernel.stdout != next_kernel }}"
+    
+    - name: Show next kernel to be applied
+      debug:
+        msg: "The next kernel to be applied is: {{ next_kernel | default('No new kernel available') }}"
+
+    - name: Show reboot required status
+      debug:
+        msg: "Reboot is required: {{ reboot_required }}"
+
+  handlers:
+    - name: Reboot the system if required
+      reboot:
+        reboot_timeout: 600
