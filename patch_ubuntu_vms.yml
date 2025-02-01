@@ -128,7 +128,7 @@
 
     - name: Check if reboot is required (based on new kernel)
       set_fact:
-        reboot_required: "{{ kernel_list.stdout_lines | length > 0 and kernel_version.stdout != next_kernel }}"
+        reboot_required: "{{ next_kernel != 'No new kernel available' and kernel_version.stdout != next_kernel }}"
       tags:
         - kernel
 
