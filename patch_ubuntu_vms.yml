@@ -13,7 +13,7 @@
       tags:
         - update
       register: apt_update_result
-      changed_when: apt_update_result.stdout != ''  # Only mark as changed if output is non-empty
+      changed_when: apt_update_result is not none and apt_update_result.changed
 
     # Step 2: Upgrade all installed packages to the latest version
     - name: Upgrade all installed packages to the latest version
@@ -24,7 +24,7 @@
       tags:
         - upgrade
       register: apt_upgrade_result
-      changed_when: apt_upgrade_result.stdout != ''  # Ensure this task is marked as changed when packages are upgraded
+      changed_when: apt_upgrade_result is not none and apt_upgrade_result.changed
 
     # Step 3: Perform a distribution upgrade (handling security and core system packages)
     - name: Perform a distribution upgrade
@@ -35,7 +35,7 @@
       tags:
         - upgrade
       register: dist_upgrade_result
-      changed_when: dist_upgrade_result.stdout != ''  # Only mark as changed if upgrades were performed
+      changed_when: dist_upgrade_result is not none and dist_upgrade_result.changed
 
     # Step 4: Remove unused packages that are no longer required
     - name: Remove unused packages
@@ -48,7 +48,7 @@
       tags:
         - clean
       register: cleanup_result
-      changed_when: cleanup_result.stdout != ''  # Ensure cleanup only occurs if packages were actually removed
+      changed_when: cleanup_result is not none and cleanup_result.changed
 
     # Step 5: Clean up APT cache to free up space
     - name: Clean up apt cache after upgrade
@@ -57,17 +57,29 @@
       tags:
         - clean
       register: apt_autoclean_result
-      changed_when: apt_autoclean_result.stdout != ''
+      changed_when: apt_autoclean_result is not none and apt_autoclean_result.changed
 
-    # Step 6: Ensure system reboot if kernel or critical package updates occurred
-    - name: Reboot system if necessary
+    # Step 6: Check if kernel upgrade or critical package update requires reboot
+    - name: Check if kernel upgrade or critical package update requires reboot
+      shell: |
+        current_kernel=$(uname -r)
+        latest_kernel=$(dpkg-query -W -f='${Version}' linux-azure | head -n 1)
+        if [ "$current_kernel" != "$latest_kernel" ]; then
+          echo "kernel_upgrade"
+        fi
+      register: reboot_needed
+      changed_when: false
+      failed_when: false
+      tags:
+        - reboot
+
+    # Step 7: Reboot system if necessary (kernel or critical package update)
+    - name: Reboot system if necessary (kernel or critical package update)
       reboot:
         msg: "Rebooting the system to apply kernel or critical package updates."
         reboot_timeout: 600
         test_command: uptime
-      when: ansible_facts.packages | selectattr('state', 'equalto', 'upgraded') | list | length > 0
-      notify:
-        - Reboot system
+      when: reboot_needed.stdout == "kernel_upgrade"
       tags:
         - reboot
 
@@ -85,7 +97,7 @@
       tags:
         - kernel
 
-    # Step 7: Check installed kernels and filter for Azure-specific kernels
+    # Step 8: Check installed kernels and filter for Azure-specific kernels
     - name: List installed Azure-specific kernels
       shell: dpkg-query --list | grep 'linux-azure'
       register: kernel_list
@@ -101,7 +113,7 @@
       tags:
         - kernel
 
-    # Step 8: Check for a new kernel and determine if a reboot is required
+    # Step 9: Check for a new kernel and determine if a reboot is required
     - name: Set next kernel to be applied
       set_fact:
         next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first }}"
