@@ -65,15 +65,19 @@
       changed_when: false
       tags: [kernel]
 
-    # Step 8: Check if a new kernel is available or if the latest is already applied
-    - name: Show next kernel version that will be applied after reboot
-      debug:
-        msg: >-
+    # Step 8: Determine if a new kernel is available
+    - name: Determine next kernel version
+      set_fact:
+        kernel_message: >-
           {% if kernel_version.stdout == installed_kernel.stdout %}
-          "Current version is {{ kernel_version.stdout }}. The latest kernel is already applied."
+          "Current version is {{ kernel_version.stdout }}. This is the latest kernel."
           {% else %}
           "Current version is {{ kernel_version.stdout }}, but after reboot {{ installed_kernel.stdout }} will be applied."
           {% endif %}
+
+    - name: Show next kernel version that will be applied after reboot
+      debug:
+        msg: "{{ kernel_message }}"
       tags: [kernel]
 
     # Step 9: Ensure reboot_required is always defined
@@ -93,24 +97,30 @@
           {% if reboot_required %}
           "Reboot is required: True. If 'true', please set 'allow_reboot: true' to apply the new kernel."
           {% else %}
-          "Reboot is not required. The latest kernel is already in use."
+          "Reboot is not required. This is the latest kernel."
           {% endif %}
       tags: [reboot]
 
-    # Step 12: Stop execution if reboot is required but allow_reboot is false
-    - name: Stop playbook execution if reboot is required but not allowed
+    # Step 12: Stop execution if no reboot is required
+    - name: Stop playbook execution if no reboot is required
       meta: end_play
-      when: reboot_required == true and allow_reboot == false
+      when: not reboot_required
       tags: [reboot]
 
-    # Step 13: Reboot the server if allowed and required
+    # Step 13: Stop execution if reboot is required but not allowed
+    - name: Stop playbook execution if reboot is required but not allowed
+      meta: end_play
+      when: reboot_required and not allow_reboot
+      tags: [reboot]
+
+    # Step 14: Reboot the server if allowed and required
     - name: Reboot the server if allowed and required
       reboot:
         post_reboot_delay: 30
       when: allow_reboot | bool and reboot_required | bool
       tags: [reboot]
 
-    # Step 14: Verify the kernel version after reboot
+    # Step 15: Verify the kernel version after reboot
     - name: Gather facts after reboot
       setup:
       when: allow_reboot | bool and reboot_required | bool
@@ -131,7 +141,6 @@
         msg: "Reboot was successful: Kernel updated to {{ new_kernel_version.stdout }}."
       when: new_kernel_version.stdout == installed_kernel.stdout
       tags: [verify]
-
 ########################################################
 # ---
 # - name: Patch and Maintain Ubuntu Linux VMs (Enhanced)
