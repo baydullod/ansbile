@@ -102,51 +102,47 @@
       tags:
         - kernel
 
-    # Step 8: Check installed kernels and filter for Azure-specific kernels
-    - name: List installed Azure-specific kernels
-      shell: dpkg-query --list | grep 'linux-azure'
-      register: kernel_list
-      changed_when: false
-      ignore_errors: true  # Continue even if no kernels are found
-      tags:
-        - kernel
+   # Step 8: Check installed kernels and filter for Azure-specific kernels
+- name: List installed Azure-specific kernels
+  shell: dpkg-query --list | grep 'linux-azure'
+  register: kernel_list
+  changed_when: false
+  ignore_errors: true  # Continue even if no kernels are found
+  tags:
+    - kernel
 
-    - name: Debug output from kernel list
-      debug:
-        msg: "{{ kernel_list.stdout_lines }}"
-      when: kernel_list.stdout_lines | length > 0
-      tags:
-        - kernel
+- name: Debug output from kernel list
+  debug:
+    msg: "{{ kernel_list.stdout_lines }}"
+  when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
+  tags:
+    - kernel
 
-    # Step 9: Check for a new kernel and determine if a reboot is required
-    - name: Set next kernel to be applied (if available)
-      set_fact:
-        next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first | default('No new kernel available') }}"
-      when: kernel_list.stdout_lines | length > 0
-      tags:
-        - kernel
+# Step 9: Ensure next_kernel is always set
+- name: Ensure next_kernel is always set
+  set_fact:
+    next_kernel: "{{ kernel_list.stdout_lines | select('search', '^linux-azure') | map('split', ' ') | map('last') | first | default('No new kernel available', true) }}"
 
-    - name: Check if reboot is required (based on new kernel)
-      set_fact:
-        reboot_required: "{{ next_kernel != 'No new kernel available' and kernel_version.stdout != next_kernel }}"
-      tags:
-        - kernel
+- name: Check if reboot is required (based on new kernel)
+  set_fact:
+    reboot_required: "{{ next_kernel != 'No new kernel available' and kernel_version.stdout != next_kernel }}"
+  when: next_kernel is defined
 
-    - name: Show next kernel to be applied
-      debug:
-        msg: "The next kernel to be applied is: {{ next_kernel }}"
-      tags:
-        - kernel
+- name: Show next kernel to be applied
+  debug:
+    msg: "The next kernel to be applied is: {{ next_kernel }}"
+  tags:
+    - kernel
 
-    - name: Show reboot required status
-      debug:
-        msg: "Reboot is required: {{ reboot_required }}"
-      tags:
-        - kernel
+- name: Show reboot required status
+  debug:
+    msg: "Reboot is required: {{ reboot_required }}"
+  tags:
+    - kernel
 
-    # Step 10: Show the final status message for reboot requirement
-    - name: Final message on reboot requirement
-      debug:
-        msg: "Final status: Reboot is {{ 'required' if reboot_required else 'NOT required' }}."
-      tags:
-        - reboot
+# Step 10: Show the final status message for reboot requirement
+- name: Final message on reboot requirement
+  debug:
+    msg: "Final status: Reboot is {{ 'required' if reboot_required else 'NOT required' }}."
+  tags:
+    - reboot
