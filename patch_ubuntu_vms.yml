@@ -46,7 +46,7 @@
         autoclean: yes
       tags: [clean]
 
-    # Step 6: Get current kernel version (removing "-azure" suffix)
+    # Step 6: Get current kernel version
     - name: Get current kernel version
       shell: uname -r | cut -d'-' -f1,2
       register: kernel_version
@@ -60,7 +60,7 @@
 
     # Step 7: Get installed but not yet applied kernel version (clean output)
     - name: Get installed kernel version (removing extra build metadata)
-      shell: apt-cache policy linux-image-azure | grep 'Installed:' | awk '{print $2}' | cut -d'.' -f1,2
+      shell: "apt-cache policy linux-image-azure | grep 'Installed:' | awk '{print $2}' | sed 's/\\.[0-9]\\+~.*$//'"
       register: installed_kernel
       changed_when: false
       tags: [kernel]
@@ -122,7 +122,6 @@
         msg: "Reboot was successful: Kernel updated to {{ new_kernel_version.stdout }}."
       when: new_kernel_version.stdout == installed_kernel.stdout
       tags: [verify]
-
 
 ########################################################
 # ---
