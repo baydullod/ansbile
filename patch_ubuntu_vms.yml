@@ -4,7 +4,7 @@
   become: yes
   gather_facts: yes  
   vars:
-    allow_reboot: false  # Set to true to allow reboot when needed
+    allow_reboot: true  # Set to true to allow reboot when needed
 
   tasks:
 
