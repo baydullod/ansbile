@@ -2,7 +2,7 @@
 - name: Patch and Maintain Ubuntu Linux VMs (Enhanced)
   hosts: all
   become: yes
-  gather_facts: yes  # Ensure system facts are gathered for decision-making
+  gather_facts: yes  
   tasks:
 
     # Step 1: Update the APT cache to ensure the latest package list is available
