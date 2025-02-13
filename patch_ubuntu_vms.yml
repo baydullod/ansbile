@@ -109,48 +109,45 @@
           | last 
           | default('No new kernel available', true) }}
       when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
-
-
-    # Step 11: Check if reboot is required (based on new kernel)
-    - name: Check if reboot is required
-      set_fact:
-        reboot_required: "{{ next_kernel is defined and next_kernel != 'No new kernel available' and next_kernel != '' and next_kernel not in kernel_version.stdout }}"
-
-    - name: Show next kernel to be applied
-      debug:
-        msg: "The next kernel to be applied is: {{ next_kernel }}"
-      tags: [kernel]
-
+    # Step 11: Check if reboot is required
+    - name: Stop playbook execution if reboot is NOT required
+      meta: end_play
+      when: not reboot_required | bool
+      tags: [reboot]
+    
     - name: Show reboot required status
       debug:
         msg: "Reboot is required: {{ reboot_required }}"
-      tags: [kernel]
-
+      tags: [reboot]
+    
     # Step 12: Reboot the server if allowed and required
     - name: Reboot the server if allowed and required
       reboot:
         post_reboot_delay: 30
       when: allow_reboot | bool and reboot_required | bool
       tags: [reboot]
-
+    
     # Step 13: Verify the kernel version after reboot
     - name: Gather facts after reboot
       setup:
       when: allow_reboot | bool and reboot_required | bool
-
+    
     - name: Verify current kernel version after reboot
       command: uname -r
       register: new_kernel_version
       changed_when: false
       tags: [verify]
-
+    
     - name: Show new kernel version after reboot
       debug:
         msg: "Kernel after reboot: {{ new_kernel_version.stdout }}"
       tags: [verify]
-
+    
     - name: Verify if reboot successfully applied the new kernel
       debug:
         msg: "Reboot was successful: Kernel updated to {{ new_kernel_version.stdout }}."
       when: new_kernel_version.stdout == next_kernel
       tags: [verify]
+
+
+    
