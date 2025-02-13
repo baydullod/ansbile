@@ -50,7 +50,7 @@
     - name: Check if kernel upgrade or critical package update requires reboot
       shell: |
         current_kernel=$(uname -r)
-        latest_kernel=$(dpkg-query -W -f='${Version}' linux-azure | head -n 1)
+        latest_kernel=$(apt-cache policy linux-image-azure | grep 'Installed:' | awk '{print $2}')
         if [ "$current_kernel" != "$latest_kernel" ]; then
           echo "kernel_upgrade"
         fi
@@ -84,31 +84,17 @@
         msg: "Current kernel version is: {{ kernel_version.stdout }}"
       tags: [kernel]
 
-    # Step 9: Check installed kernels and filter for Azure-specific kernels
-    - name: List installed Azure-specific kernels
-      shell: dpkg-query --list | grep 'linux-azure'
-      register: kernel_list
+    # Step 9: Check installed kernel version (new version to be applied after reboot)
+    - name: Check installed kernel version
+      shell: apt-cache policy linux-image-azure | grep 'Installed:' | awk '{print $2}'
+      register: installed_kernel
       changed_when: false
-      ignore_errors: true
       tags: [kernel]
 
-    - name: Debug output from kernel list
+    - name: Show next kernel version that will be applied after reboot
       debug:
-        msg: "{{ kernel_list.stdout_lines }}"
-      when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
+        msg: "Current version is {{ kernel_version.stdout }}, but after reboot {{ installed_kernel.stdout }} will be applied."
       tags: [kernel]
-
-    - name: Extract the latest installed Azure kernel
-      set_fact:
-        next_kernel: >-
-          {{ kernel_list.stdout_lines 
-          | select('search', '^ii  linux-azure ') 
-          | map('regex_replace', '^ii  linux-azure[^ ]+ +[^ ]+ +([^ ]+).*$', '\\1') 
-          | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+') 
-          | list 
-          | last 
-          | default('No new kernel available', true) }}
-      when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
 
     # Step 10: Ensure reboot_required is always defined
     - name: Initialize reboot_required variable
@@ -118,13 +104,14 @@
     # Step 11: Check if reboot is required
     - name: Determine if reboot is required
       set_fact:
-        reboot_required: "{{ next_kernel is defined and next_kernel != 'No new kernel available' and next_kernel != '' and next_kernel not in kernel_version.stdout }}"
+        reboot_required: "{{ installed_kernel.stdout != '' and kernel_version.stdout != installed_kernel.stdout }}"
+      when: installed_kernel.stdout is defined
 
     - name: Show reboot required status
       debug:
         msg: >-
           "Reboot is required: {{ reboot_required }}. 
-          Please set 'allow_reboot: true' if you want the new kernel to take effect."
+          If 'true', please set 'allow_reboot: true' to apply the new kernel."
       tags: [reboot]
 
     # Step 12: Stop playbook execution if reboot is NOT required
@@ -159,5 +146,5 @@
     - name: Verify if reboot successfully applied the new kernel
       debug:
         msg: "Reboot was successful: Kernel updated to {{ new_kernel_version.stdout }}."
-      when: new_kernel_version.stdout == next_kernel
+      when: new_kernel_version.stdout == installed_kernel.stdout
       tags: [verify]
