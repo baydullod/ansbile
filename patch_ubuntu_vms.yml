@@ -46,35 +46,9 @@
         autoclean: yes
       tags: [clean]
 
-    # Step 6: Check if kernel upgrade or critical package update requires reboot
-    - name: Check if kernel upgrade or critical package update requires reboot
-      shell: |
-        current_kernel=$(uname -r)
-        latest_kernel=$(apt-cache policy linux-image-azure | grep 'Installed:' | awk '{print $2}')
-        if [ "$current_kernel" != "$latest_kernel" ]; then
-          echo "kernel_upgrade"
-        fi
-      register: reboot_needed
-      changed_when: false
-      failed_when: false
-      tags: [reboot]
-
-    # Step 7: Show if reboot is required based on kernel upgrade
-    - name: Show if reboot is required (based on kernel upgrade)
-      debug:
-        msg: "Reboot is required to apply kernel updates."
-      when: reboot_needed.stdout == "kernel_upgrade"
-      tags: [reboot]
-
-    - name: Show if reboot is not required (no kernel upgrade)
-      debug:
-        msg: "Reboot is NOT required. No kernel upgrade found."
-      when: reboot_needed.stdout != "kernel_upgrade"
-      tags: [reboot]
-
-    # Step 8: Display current kernel version
-    - name: Display current kernel version
-      command: uname -r
+    # Step 6: Get current kernel version (removing "-azure" suffix)
+    - name: Get current kernel version
+      shell: uname -r | cut -d'-' -f1,2
       register: kernel_version
       changed_when: false
       tags: [kernel]
@@ -84,9 +58,9 @@
         msg: "Current kernel version is: {{ kernel_version.stdout }}"
       tags: [kernel]
 
-    # Step 9: Check installed kernel version (new version to be applied after reboot)
-    - name: Check installed kernel version
-      shell: apt-cache policy linux-image-azure | grep 'Installed:' | awk '{print $2}'
+    # Step 7: Get installed but not yet applied kernel version (clean output)
+    - name: Get installed kernel version (removing extra build metadata)
+      shell: apt-cache policy linux-image-azure | grep 'Installed:' | awk '{print $2}' | cut -d'.' -f1,2
       register: installed_kernel
       changed_when: false
       tags: [kernel]
@@ -96,18 +70,17 @@
         msg: "Current version is {{ kernel_version.stdout }}, but after reboot {{ installed_kernel.stdout }} will be applied."
       tags: [kernel]
 
-    # Step 10: Ensure reboot_required is always defined
+    # Step 8: Ensure reboot_required is always defined
     - name: Initialize reboot_required variable
       set_fact:
         reboot_required: false
 
-    # Step 11: Check if reboot is required
+    # Step 9: Check if reboot is required
     - name: Determine if reboot is required
       set_fact:
-        reboot_required: "{{ installed_kernel.stdout != '' and kernel_version.stdout != installed_kernel.stdout }}"
-      when: installed_kernel.stdout is defined
+        reboot_required: "{{ installed_kernel.stdout is defined and installed_kernel.stdout != '' and kernel_version.stdout != installed_kernel.stdout }}"
 
-    # Step 12: Show reboot required status
+    # Step 10: Show reboot required status
     - name: Show reboot required status
       debug:
         msg: >-
@@ -115,26 +88,26 @@
           If 'true', please set 'allow_reboot: true' to apply the new kernel."
       tags: [reboot]
 
-    # Step 13: **Stop playbook execution if reboot is required but allow_reboot is false**
+    # Step 11: Stop execution if reboot is required but allow_reboot is false
     - name: Stop playbook execution if reboot is required but not allowed
       meta: end_play
       when: reboot_required == true and allow_reboot == false
       tags: [reboot]
 
-    # Step 14: Reboot the server if allowed and required
+    # Step 12: Reboot the server if allowed and required
     - name: Reboot the server if allowed and required
       reboot:
         post_reboot_delay: 30
       when: allow_reboot | bool and reboot_required | bool
       tags: [reboot]
 
-    # Step 15: Verify the kernel version after reboot
+    # Step 13: Verify the kernel version after reboot
     - name: Gather facts after reboot
       setup:
       when: allow_reboot | bool and reboot_required | bool
 
     - name: Verify current kernel version after reboot
-      command: uname -r
+      shell: uname -r | cut -d'-' -f1,2
       register: new_kernel_version
       changed_when: false
       tags: [verify]
