@@ -120,11 +120,11 @@
     # Step 9: Extract the latest installed Azure kernel
     - name: Extract the latest installed Azure kernel
       set_fact:
-        next_kernel: "{{ kernel_list.stdout_lines | select('search', 'linux-azure') | map('split', '\\s+') | map('last') | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+-\\d+') | list | last | default('No new kernel available', true) }}"
+        next_kernel: "{{ kernel_list.stdout_lines | select('search', 'linux-azure') | map('split', '\\s+') | map('4') | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+-\\d+') | list | last | default('No new kernel available', true) }}"
 
     - name: Check if reboot is required (based on new kernel)
       set_fact:
-        reboot_required: "{{ next_kernel is defined and next_kernel != 'No new kernel available' and next_kernel != '' and kernel_version.stdout != next_kernel }}"
+        reboot_required: "{{ next_kernel is defined and next_kernel != 'No new kernel available' and next_kernel != '' and next_kernel not in kernel_version.stdout }}"
 
     - name: Show next kernel to be applied
       debug:
