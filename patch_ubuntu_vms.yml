@@ -3,141 +3,120 @@
   hosts: all
   become: yes
   gather_facts: yes  
+  vars:
+    allow_reboot: false  # Set this to true to allow reboot when needed
+
   tasks:
 
-    # Step 1: Update the APT cache to ensure the latest package list is available
+    # Step 1: Update the APT cache
     - name: Update apt cache
       apt:
         update_cache: yes
-        cache_valid_time: 3600  # Cache validity for 1 hour
-      tags:
-        - update
+        cache_valid_time: 3600
+      tags: [update]
 
-    # Step 2: Upgrade all installed packages to the latest version
+    # Step 2: Upgrade installed packages
     - name: Upgrade all installed packages to the latest version
       apt:
         upgrade: dist
         autoclean: yes
         autoremove: yes
-      tags:
-        - upgrade
+      tags: [upgrade]
 
-    # Step 3: Perform a distribution upgrade (handling security and core system packages)
+    # Step 3: Perform a distribution upgrade
     - name: Perform a distribution upgrade
       apt:
         upgrade: dist
         autoremove: yes
         autoclean: yes
-      tags:
-        - upgrade
+      tags: [upgrade]
 
-    # Step 4: Remove unused packages that are no longer required
-    - name: Remove unused packages
-      apt:
-        name: "{{ item }}"
-        state: absent
-      loop: "{{ ansible_facts.packages | selectattr('state', 'equalto', 'removed') | map(attribute='package') | list }}"
-      when: ansible_facts.packages is defined
-      tags:
-        - clean
-
-    # Step 5: Clean up APT cache to free up space
-    - name: Clean up apt cache after upgrade
+    # Step 4: Clean up
+    - name: Clean up apt cache
       apt:
         autoclean: yes
-      tags:
-        - clean
+      tags: [clean]
 
-    # Step 6: Check if kernel upgrade or critical package update requires reboot
-    - name: Check if kernel upgrade or critical package update requires reboot
-      shell: |
-        current_kernel=$(uname -r)
-        latest_kernel=$(dpkg-query -W -f='${Version}' linux-azure | head -n 1)
-        if [ "$current_kernel" != "$latest_kernel" ]; then
-          echo "kernel_upgrade"
-        fi
-      register: reboot_needed
-      changed_when: false
-      failed_when: false
-      tags:
-        - reboot
-
-    # Step 7: Show if reboot is required based on kernel upgrade
-    - name: Show if reboot is required (based on kernel upgrade)
-      debug:
-        msg: "Reboot is required to apply kernel updates."
-      when: reboot_needed.stdout == "kernel_upgrade"
-      tags:
-        - reboot
-
-    - name: Show if reboot is not required (no kernel upgrade)
-      debug:
-        msg: "Reboot is NOT required. No kernel upgrade found."
-      when: reboot_needed.stdout != "kernel_upgrade"
-      tags:
-        - reboot
-
-    # Kernel checks to identify if we need a reboot for a new kernel
+    # Step 5: Display current kernel
     - name: Display current kernel version
       command: uname -r
       register: kernel_version
       changed_when: false
-      tags:
-        - kernel
+      tags: [kernel]
 
     - name: Show current kernel version
       debug:
         msg: "Current kernel version is: {{ kernel_version.stdout }}"
-      tags:
-        - kernel
+      tags: [kernel]
 
-    # Step 8: Check installed kernels and filter for Azure-specific kernels
+    # Step 6: Get list of installed kernels
     - name: List installed Azure-specific kernels
       shell: dpkg-query --list | grep 'linux-azure'
       register: kernel_list
       changed_when: false
-      ignore_errors: true  # Continue even if no kernels are found
-      tags:
-        - kernel
+      ignore_errors: true
+      tags: [kernel]
 
     - name: Debug output from kernel list
       debug:
         msg: "{{ kernel_list.stdout_lines }}"
       when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
-      tags:
-        - kernel
+      tags: [kernel]
 
-    # Step 9: Extract the latest installed Azure kernel
-    - name: Extract the latest installed Azure kernel
+    # Step 7: Extract latest installed kernel version
+    - name: Extract the latest installed Azure kernel version
       set_fact:
         next_kernel: >-
           {{ kernel_list.stdout_lines 
-          | select('search', '^ii  linux-azure-[0-9]+') 
-          | map('regex_replace', '^ii  linux-azure-[0-9]+-headers-([0-9]+\.[0-9]+\.[0-9]+-[0-9]+).*$', '\\1') 
+          | select('search', '^ii  linux-azure ') 
+          | map('split', '\\s+') 
+          | map('4') 
+          | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+') 
           | list 
           | last 
           | default('No new kernel available', true) }}
       when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
 
-    - name: Check if reboot is required (based on new kernel)
+    # Step 8: Check if reboot is needed
+    - name: Check if reboot is required
       set_fact:
         reboot_required: "{{ next_kernel is defined and next_kernel != 'No new kernel available' and next_kernel != '' and next_kernel not in kernel_version.stdout }}"
 
     - name: Show next kernel to be applied
       debug:
         msg: "The next kernel to be applied is: {{ next_kernel }}"
-      tags:
-        - kernel
+      tags: [kernel]
 
     - name: Show reboot required status
       debug:
         msg: "Reboot is required: {{ reboot_required }}"
-      tags:
-        - kernel
+      tags: [reboot]
 
-    # Step 10: Show the final status message for reboot requirement
-    - name: Final message on reboot requirement
+    # Step 9: Reboot if allowed and necessary
+    - name: Reboot the server if allowed and required
+      reboot:
+        post_reboot_delay: 30
+      when: allow_reboot | bool and reboot_required | bool
+      tags: [reboot]
+
+    # Step 10: Verify the kernel version after reboot
+    - name: Gather facts after reboot
+      setup:
+      when: allow_reboot | bool and reboot_required | bool
+
+    - name: Verify current kernel version after reboot
+      command: uname -r
+      register: new_kernel_version
+      changed_when: false
+      tags: [verify]
+
+    - name: Show new kernel version after reboot
       debug:
-        msg: "Final status: Reboot is {{ 'required' if reboot_required else 'NOT required' }}."
-      tags:
-        - reboot
+        msg: "Kernel after reboot: {{ new_kernel_version.stdout }}"
+      tags: [verify]
+
+    - name: Verify if reboot successfully applied the new kernel
+      debug:
+        msg: "Reboot was successful: Kernel updated to {{ new_kernel_version.stdout }}."
+      when: new_kernel_version.stdout == next_kernel
+      tags: [verify]
