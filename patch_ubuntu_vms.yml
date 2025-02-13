@@ -122,7 +122,9 @@
 
     - name: Show reboot required status
       debug:
-        msg: "Reboot is required: {{ reboot_required }}"
+        msg: >-
+          "Reboot is required: {{ reboot_required }}. 
+          Please set 'allow_reboot: true' if you want the new kernel to take effect."
       tags: [reboot]
 
     # Step 12: Stop playbook execution if reboot is NOT required
