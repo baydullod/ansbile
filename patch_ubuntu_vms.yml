@@ -12,8 +12,6 @@
         cache_valid_time: 3600  # Cache validity for 1 hour
       tags:
         - update
-      register: apt_update_result
-      changed_when: apt_update_result is not none and apt_update_result.changed
 
     # Step 2: Upgrade all installed packages to the latest version
     - name: Upgrade all installed packages to the latest version
@@ -23,8 +21,6 @@
         autoremove: yes
       tags:
         - upgrade
-      register: apt_upgrade_result
-      changed_when: apt_upgrade_result is not none and apt_upgrade_result.changed
 
     # Step 3: Perform a distribution upgrade (handling security and core system packages)
     - name: Perform a distribution upgrade
@@ -34,8 +30,6 @@
         autoclean: yes
       tags:
         - upgrade
-      register: dist_upgrade_result
-      changed_when: dist_upgrade_result is not none and dist_upgrade_result.changed
 
     # Step 4: Remove unused packages that are no longer required
     - name: Remove unused packages
@@ -46,8 +40,6 @@
       when: ansible_facts.packages is defined
       tags:
         - clean
-      register: cleanup_result
-      changed_when: cleanup_result is not none and cleanup_result.changed
 
     # Step 5: Clean up APT cache to free up space
     - name: Clean up apt cache after upgrade
@@ -55,8 +47,6 @@
         autoclean: yes
       tags:
         - clean
-      register: apt_autoclean_result
-      changed_when: apt_autoclean_result is not none and apt_autoclean_result.changed
 
     # Step 6: Check if kernel upgrade or critical package update requires reboot
     - name: Check if kernel upgrade or critical package update requires reboot
@@ -120,7 +110,14 @@
     # Step 9: Extract the latest installed Azure kernel
     - name: Extract the latest installed Azure kernel
       set_fact:
-        next_kernel: "{{ kernel_list.stdout_lines | select('search', 'linux-azure') | map('split', '\\s+') | map('4') | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+-\\d+') | list | last | default('No new kernel available', true) }}"
+        next_kernel: >-
+          {{ kernel_list.stdout_lines 
+          | select('search', '^ii  linux-azure-[0-9]+') 
+          | map('regex_replace', '^ii  linux-azure-[0-9]+-headers-([0-9]+\.[0-9]+\.[0-9]+-[0-9]+).*$', '\\1') 
+          | list 
+          | last 
+          | default('No new kernel available', true) }}
+      when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
 
     - name: Check if reboot is required (based on new kernel)
       set_fact:
