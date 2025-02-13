@@ -98,19 +98,18 @@
       when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
       tags: [kernel]
 
-    # Step 10: Extract latest installed Azure kernel
     - name: Extract the latest installed Azure kernel
       set_fact:
         next_kernel: >-
           {{ kernel_list.stdout_lines 
           | select('search', '^ii  linux-azure ') 
-          | map('split', '\\s+') 
-          | map('4') 
+          | map('regex_replace', '^ii  linux-azure[^ ]+ +[^ ]+ +([^ ]+).*$', '\\1') 
           | select('match', '^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+') 
           | list 
           | last 
           | default('No new kernel available', true) }}
       when: kernel_list.stdout_lines is defined and kernel_list.stdout_lines | length > 0
+
 
     # Step 11: Check if reboot is required (based on new kernel)
     - name: Check if reboot is required
