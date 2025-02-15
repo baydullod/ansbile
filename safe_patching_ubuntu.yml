@@ -1,0 +1,11 @@
+- name: Safe Patching on Linux Servers
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+
+    - name: Apply Safe Upgrades (Security and Bug Fixes)
+      apt:
+        upgrade: safe
