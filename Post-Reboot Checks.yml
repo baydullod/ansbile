@@ -4,9 +4,14 @@
   gather_facts: yes
 
   vars:
-    desired_kernel_version: "6.8.0-1018-azure"  # Set the exact desired kernel version
-    allow_kernel_update: true  # Set to true to allow automatic kernel upgrade
-    website_url: "https://semaphore.eastus.cloudapp.azure.com"  # Set your website URL for the ping test
+    desired_kernel_version: "6.8.0-1020-azure"  # Set the exact desired kernel version
+    allow_kernel_update: false  # Set to true to allow automatic kernel upgrade
+    website_url: https://semaphore.eastus.cloudapp.azure.com"  # Set your website URL for the ping test
+    check_apache: true  # Set to false to skip Apache check
+    check_mysql: true   # Set to false to skip MySQL check
+    check_sshd: true    # Set to false to skip SSHD check
+    check_sssd: false   # Set to true if you want to check SSSD (for AD authentication)
+    check_website: true  # Set to false to skip website availability check
 
   tasks:
 
@@ -87,7 +92,7 @@
       when: new_kernel_version.stdout == desired_kernel_version
 
     # ---------------------------------------------
-    # POST-REBOOT SERVICE CHECKS
+    # OPTIONAL POST-REBOOT SERVICE CHECKS
     # ---------------------------------------------
 
     - name: Verify Apache (httpd/nginx) service status
@@ -96,11 +101,12 @@
         state: started
       register: apache_status
       ignore_errors: yes
+      when: check_apache
 
     - name: Show Apache status
       debug:
         msg: "Apache is {{ 'running' if apache_status.status.ActiveState == 'active' else 'NOT running' }}"
-      when: apache_status is defined
+      when: check_apache and apache_status is defined
 
     - name: Verify MySQL (MariaDB) service status
       systemd:
@@ -108,11 +114,12 @@
         state: started
       register: mysql_status
       ignore_errors: yes
+      when: check_mysql
 
     - name: Show MySQL status
       debug:
         msg: "MySQL is {{ 'running' if mysql_status.status.ActiveState == 'active' else 'NOT running' }}"
-      when: mysql_status is defined
+      when: check_mysql and mysql_status is defined
 
     - name: Verify SSHD service status
       systemd:
@@ -120,21 +127,33 @@
         state: started
       register: sshd_status
       ignore_errors: yes
+      when: check_sshd
 
     - name: Show SSHD status
       debug:
         msg: "SSHD is {{ 'running' if sshd_status.status.ActiveState == 'active' else 'NOT running' }}"
-      when: sshd_status is defined
+      when: check_sshd and sshd_status is defined
 
-    - name: Ping website to verify service availability
-      uri:
-        url: "{{ website_url }}"
-        method: GET
-        return_content: no
-        status_code: 200
+    - name: Verify SSSD service status
+      systemd:
+        name: sssd
+        state: started
+      register: sssd_status
+      ignore_errors: yes
+      when: check_sssd
+
+    - name: Show SSSD status
+      debug:
+        msg: "SSSD is {{ 'running' if sssd_status.status.ActiveState == 'active' else 'NOT running' }}"
+      when: check_sssd and sssd_status is defined
+
+    - name: Ping website using curl
+      command: curl -s -o /dev/null -w "%{http_code}" {{ website_url }}
       register: website_ping
       ignore_errors: yes
+      when: check_website
 
     - name: Show website status
       debug:
-        msg: "Website {{ website_url }} is {{ 'reachable' if website_ping.status == 200 else 'NOT reachable' }}"
+        msg: "Website {{ website_url }} returned status code {{ website_ping.stdout }}"
+      when: check_website
