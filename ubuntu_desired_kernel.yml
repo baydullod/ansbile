@@ -1,0 +1,88 @@
+- name: Ensure the Desired Kernel Version is Installed
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    desired_kernel_version: "5.15.0-89-generic"  # Set your desired kernel version here
+    allow_kernel_update: false  # Set to true to allow automatic kernel upgrade
+
+  tasks:
+
+    # Step 1: Get currently running kernel version
+    - name: Get current running kernel version
+      shell: uname -r | cut -d'-' -f1,2
+      register: running_kernel
+      changed_when: false
+
+    - name: Show currently running kernel version
+      debug:
+        msg: "Current running kernel version: {{ running_kernel.stdout }}"
+
+    # Step 2: Get installed kernel versions
+    - name: Get installed kernel versions
+      shell: "dpkg --list | grep linux-image | awk '{print $2}'"
+      register: installed_kernels
+      changed_when: false
+
+    - name: Show installed kernel versions
+      debug:
+        msg: "Installed kernel versions: {{ installed_kernels.stdout_lines }}"
+
+    # Step 3: Determine if the desired kernel is already installed
+    - name: Check if desired kernel is installed
+      set_fact:
+        desired_kernel_installed: "{{ desired_kernel_version in installed_kernels.stdout }}"
+
+    # Step 4: Compare running kernel with desired kernel
+    - name: Determine if kernel update is needed
+      set_fact:
+        kernel_update_needed: "{{ running_kernel.stdout != desired_kernel_version }}"
+
+    - name: Show kernel update status
+      debug:
+        msg: >-
+          {% if not kernel_update_needed %}
+          "System is running the desired kernel version: {{ running_kernel.stdout }}. No update needed."
+          {% elif kernel_update_needed and not allow_kernel_update %}
+          "System is running {{ running_kernel.stdout }}, but the desired version is {{ desired_kernel_version }}. Please set 'allow_kernel_update' to 'true' to install it."
+          {% else %}
+          "Kernel update required: Running {{ running_kernel.stdout }}, but desired version is {{ desired_kernel_version }}. Proceeding with update..."
+          {% endif %}
+
+    # Step 5: Stop playbook if update is needed but not allowed
+    - name: Stop execution if update is needed but not allowed
+      meta: end_play
+      when: kernel_update_needed and not allow_kernel_update
+
+    # Step 6: Install the desired kernel if update is allowed
+    - name: Install the desired kernel version
+      apt:
+        name: "linux-image-{{ desired_kernel_version }}"
+        state: present
+      when: kernel_update_needed and allow_kernel_update
+
+    # Step 7: Reboot the server if kernel update was performed
+    - name: Reboot server if kernel was updated
+      reboot:
+        post_reboot_delay: 30
+      when: kernel_update_needed and allow_kernel_update
+
+    # Step 8: Verify kernel version after reboot
+    - name: Gather facts after reboot
+      setup:
+      when: kernel_update_needed and allow_kernel_update
+
+    - name: Verify new kernel version after reboot
+      shell: uname -r | cut -d'-' -f1,2
+      register: new_kernel_version
+      changed_when: false
+
+    - name: Show new kernel version after reboot
+      debug:
+        msg: "Kernel after reboot: {{ new_kernel_version.stdout }}"
+
+    - name: Confirm if update was successful
+      debug:
+        msg: "Kernel update was successful: Running {{ new_kernel_version.stdout }}."
+      when: new_kernel_version.stdout == desired_kernel_version
