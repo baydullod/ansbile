@@ -6,7 +6,7 @@
   vars:
     desired_kernel_version: "6.8.0-1018-azure"  # Set the exact desired kernel version
     allow_kernel_update: false  # Set to true to allow automatic kernel upgrade
-    website_url: https://semaphore.eastus.cloudapp.azure.com"  # Set your website URL for the ping test
+    website_url: "https://semaphore.eastus.cloudapp.azure.com"  # Set your website URL for the ping test
     check_apache: true  # Set to false to skip Apache check
     check_mysql: true   # Set to false to skip MySQL check
     check_sshd: true    # Set to false to skip SSHD check
