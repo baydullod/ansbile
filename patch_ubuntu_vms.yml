@@ -91,15 +91,28 @@
         reboot_required: "{{ installed_kernel.stdout is defined and installed_kernel.stdout != '' and kernel_version.stdout != installed_kernel.stdout }}"
 
     # Step 11: Show reboot required status
+    # - name: Show reboot required status
+    #   debug:
+    #     msg: >-
+    #       {% if reboot_required %}
+    #       "Reboot is required: True. If 'true', please set 'allow_reboot: true' to apply the new kernel."
+    #       {% else %}
+    #       "Reboot is not required. This is the latest kernel."
+    #       {% endif %}
+    #   tags: [reboot]
+
     - name: Show reboot required status
       debug:
         msg: >-
-          {% if reboot_required %}
-          "Reboot is required: True. If 'true', please set 'allow_reboot: true' to apply the new kernel."
+          {% if reboot_required and allow_reboot %}
+          "This server requires a reboot to apply the new kernel version {{ installed_kernel.stdout }}. 'allow_reboot' is set to 'true', so the reboot will proceed."
+          {% elif reboot_required and not allow_reboot %}
+          "This server requires a reboot to apply the new kernel version {{ installed_kernel.stdout }}. Please set 'allow_reboot' to 'true' to allow the reboot."
           {% else %}
-          "Reboot is not required. This is the latest kernel."
+          "Reboot is not required. The current kernel version {{ kernel_version.stdout }} is up to date."
           {% endif %}
       tags: [reboot]
+
 
     # Step 12: Stop execution if no reboot is required
     - name: Stop playbook execution if no reboot is required
