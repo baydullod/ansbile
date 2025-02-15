@@ -1,0 +1,140 @@
+- name: Ensure the Desired Kernel Version is Installed
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    desired_kernel_version: "6.8.0-1020-azure"  # Set the exact desired kernel version
+    allow_kernel_update: false  # Set to true to allow automatic kernel upgrade
+    website_url: "https://semaphore.eastus.cloudapp.azure.com"  # Set your website URL for the ping test
+
+  tasks:
+
+    - name: Get current running kernel version
+      shell: uname -r
+      register: running_kernel
+      changed_when: false
+
+    - name: Show currently running kernel version
+      debug:
+        msg: "Current running kernel version: {{ running_kernel.stdout }}"
+
+    - name: Get installed kernel versions
+      shell: "dpkg --list | grep linux-image | awk '{print $2}'"
+      register: installed_kernels
+      changed_when: false
+
+    - name: Show installed kernel versions
+      debug:
+        msg: "Installed kernel versions: {{ installed_kernels.stdout_lines }}"
+
+    - name: Check if desired kernel is installed
+      set_fact:
+        desired_kernel_installed: "{{ desired_kernel_version in installed_kernels.stdout }}"
+
+    - name: Determine if kernel update is needed
+      set_fact:
+        kernel_update_needed: "{{ running_kernel.stdout != desired_kernel_version }}"
+
+    - name: Show kernel update status
+      debug:
+        msg: >-
+          {% if not kernel_update_needed %}
+          "System is running the desired kernel version: {{ running_kernel.stdout }}. No update needed."
+          {% elif kernel_update_needed and not allow_kernel_update %}
+          "System is running {{ running_kernel.stdout }}, but the desired version is {{ desired_kernel_version }}. Please set 'allow_kernel_update' to 'true' to install it."
+          {% else %}
+          "Kernel update required: Running {{ running_kernel.stdout }}, but desired version is {{ desired_kernel_version }}. Proceeding with update..."
+          {% endif %}
+
+    - name: Stop execution if update is needed but not allowed
+      meta: end_play
+      when: kernel_update_needed and not allow_kernel_update
+
+    - name: Install the desired kernel version
+      apt:
+        name: "linux-image-{{ desired_kernel_version }}"
+        state: present
+      when: kernel_update_needed and allow_kernel_update
+
+    - name: Set desired kernel as the default in GRUB
+      shell: |
+        sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux {{ desired_kernel_version }}"/' /etc/default/grub
+        update-grub
+      when: kernel_update_needed and allow_kernel_update
+
+    - name: Reboot server if kernel was updated
+      reboot:
+        post_reboot_delay: 30
+      when: kernel_update_needed and allow_kernel_update
+
+    - name: Gather facts after reboot
+      setup:
+      when: kernel_update_needed and allow_kernel_update
+
+    - name: Verify new kernel version after reboot
+      shell: uname -r
+      register: new_kernel_version
+      changed_when: false
+
+    - name: Show new kernel version after reboot
+      debug:
+        msg: "Kernel after reboot: {{ new_kernel_version.stdout }}"
+
+    - name: Confirm if update was successful
+      debug:
+        msg: "Kernel update was successful: Running {{ new_kernel_version.stdout }}."
+      when: new_kernel_version.stdout == desired_kernel_version
+
+    # ---------------------------------------------
+    # POST-REBOOT SERVICE CHECKS
+    # ---------------------------------------------
+
+    - name: Verify Apache (httpd/nginx) service status
+      systemd:
+        name: apache2
+        state: started
+      register: apache_status
+      ignore_errors: yes
+
+    - name: Show Apache status
+      debug:
+        msg: "Apache is {{ 'running' if apache_status.status.ActiveState == 'active' else 'NOT running' }}"
+      when: apache_status is defined
+
+    - name: Verify MySQL (MariaDB) service status
+      systemd:
+        name: mysql
+        state: started
+      register: mysql_status
+      ignore_errors: yes
+
+    - name: Show MySQL status
+      debug:
+        msg: "MySQL is {{ 'running' if mysql_status.status.ActiveState == 'active' else 'NOT running' }}"
+      when: mysql_status is defined
+
+    - name: Verify SSHD service status
+      systemd:
+        name: ssh
+        state: started
+      register: sshd_status
+      ignore_errors: yes
+
+    - name: Show SSHD status
+      debug:
+        msg: "SSHD is {{ 'running' if sshd_status.status.ActiveState == 'active' else 'NOT running' }}"
+      when: sshd_status is defined
+
+    - name: Ping website to verify service availability
+      uri:
+        url: "{{ website_url }}"
+        method: GET
+        return_content: no
+        status_code: 200
+      register: website_ping
+      ignore_errors: yes
+
+    - name: Show website status
+      debug:
+        msg: "Website {{ website_url }} is {{ 'reachable' if website_ping.status == 200 else 'NOT reachable' }}"
