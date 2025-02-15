@@ -152,8 +152,13 @@
         msg: "Website URL is not defined! Please set 'website_url' in the playbook variables."
       when: check_website and (website_url is not defined or website_url | length == 0)
     
+    - name: Validate that website_url is set
+      fail:
+        msg: "Website URL is not defined! Please set 'website_url' in the playbook variables."
+      when: check_website and (website_url is not defined or website_url | length == 0)
+    
     - name: Ping website using curl
-      command: curl -s -o /dev/null -w "%{http_code}" "{{ website_url }}"
+      shell: curl -s -o /dev/null -w "%{http_code}" "{{ website_url }}"
       register: website_ping
       ignore_errors: yes
       when: check_website
@@ -167,5 +172,6 @@
           "Website {{ website_url }} check failed or is unreachable."
           {% endif %}
       when: check_website
+
     
 
