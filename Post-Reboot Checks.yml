@@ -147,30 +147,26 @@
         msg: "SSSD is {{ 'running' if sssd_status.status.ActiveState == 'active' else 'NOT running' }}"
       when: check_sssd and sssd_status is defined
 
+    # ---------------------------------------------
+    # WEBSITE AVAILABILITY CHECK
+    # ---------------------------------------------
+
     - name: Validate that website_url is set
       fail:
         msg: "Website URL is not defined! Please set 'website_url' in the playbook variables."
       when: check_website and (website_url is not defined or website_url | length == 0)
-    
-    - name: Validate that website_url is set
-      fail:
-        msg: "Website URL is not defined! Please set 'website_url' in the playbook variables."
-      when: check_website and (website_url is not defined or website_url | length == 0)
-    
-    - name: Ping website using curl
-      shell: curl -s -o /dev/null -w "%{http_code}" "{{ website_url }}"
-      register: website_ping
+
+    - name: Check if website is reachable
+      uri:
+        url: "{{ website_url }}"
+        status_code: 200
+      register: website_status
       ignore_errors: yes
       when: check_website
-    
+
     - name: Show website status
       debug:
-        msg: >-
-          {% if website_ping is defined and website_ping.stdout is defined and website_ping.stdout not in ['000', ''] %}
-          "Website {{ website_url }} returned status code {{ website_ping.stdout }}"
-          {% else %}
-          "Website {{ website_url }} check failed or is unreachable."
-          {% endif %}
+        msg: "Website {{ website_url }} is {{ 'UP' if website_status.status == 200 else 'DOWN' }}"
       when: check_website
 
     
