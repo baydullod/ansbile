@@ -153,7 +153,7 @@
       when: check_website and (website_url is not defined or website_url | length == 0)
     
     - name: Ping website using curl
-      command: curl -s -o /dev/null -w "%{http_code}" '{{ website_url }}'
+      command: curl -s -o /dev/null -w "%{http_code}" "{{ website_url }}"
       register: website_ping
       ignore_errors: yes
       when: check_website
@@ -161,11 +161,11 @@
     - name: Show website status
       debug:
         msg: >-
-          {% if website_ping is defined and website_ping.stdout is defined %}
-          Website {{ website_url }} returned status code {{ website_ping.stdout }}
+          {% if website_ping is defined and website_ping.stdout is defined and website_ping.stdout not in ['000', ''] %}
+          "Website {{ website_url }} returned status code {{ website_ping.stdout }}"
           {% else %}
-          Website {{ website_url }} check failed or returned no response.
+          "Website {{ website_url }} check failed or is unreachable."
           {% endif %}
       when: check_website
-
+    
 
