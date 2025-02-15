@@ -4,14 +4,13 @@
   gather_facts: yes
 
   vars:
-    desired_kernel_version: "6.8.0-1020-azure"  # Set your desired kernel version here
+    desired_kernel_version: "6.8.0-1020-azure"  # Set the exact desired kernel version
     allow_kernel_update: true  # Set to true to allow automatic kernel upgrade
 
   tasks:
 
-    # Step 1: Get currently running kernel version
     - name: Get current running kernel version
-      shell: uname -r | cut -d'-' -f1,2
+      shell: uname -r
       register: running_kernel
       changed_when: false
 
@@ -19,7 +18,6 @@
       debug:
         msg: "Current running kernel version: {{ running_kernel.stdout }}"
 
-    # Step 2: Get installed kernel versions
     - name: Get installed kernel versions
       shell: "dpkg --list | grep linux-image | awk '{print $2}'"
       register: installed_kernels
@@ -29,12 +27,10 @@
       debug:
         msg: "Installed kernel versions: {{ installed_kernels.stdout_lines }}"
 
-    # Step 3: Determine if the desired kernel is already installed
     - name: Check if desired kernel is installed
       set_fact:
         desired_kernel_installed: "{{ desired_kernel_version in installed_kernels.stdout }}"
 
-    # Step 4: Compare running kernel with desired kernel
     - name: Determine if kernel update is needed
       set_fact:
         kernel_update_needed: "{{ running_kernel.stdout != desired_kernel_version }}"
@@ -50,31 +46,33 @@
           "Kernel update required: Running {{ running_kernel.stdout }}, but desired version is {{ desired_kernel_version }}. Proceeding with update..."
           {% endif %}
 
-    # Step 5: Stop playbook if update is needed but not allowed
     - name: Stop execution if update is needed but not allowed
       meta: end_play
       when: kernel_update_needed and not allow_kernel_update
 
-    # Step 6: Install the desired kernel if update is allowed
     - name: Install the desired kernel version
       apt:
         name: "linux-image-{{ desired_kernel_version }}"
         state: present
       when: kernel_update_needed and allow_kernel_update
 
-    # Step 7: Reboot the server if kernel update was performed
+    - name: Set desired kernel as the default in GRUB
+      shell: |
+        sed -i 's/GRUB_DEFAULT=.*/GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux {{ desired_kernel_version }}"/' /etc/default/grub
+        update-grub
+      when: kernel_update_needed and allow_kernel_update
+
     - name: Reboot server if kernel was updated
       reboot:
         post_reboot_delay: 30
       when: kernel_update_needed and allow_kernel_update
 
-    # Step 8: Verify kernel version after reboot
     - name: Gather facts after reboot
       setup:
       when: kernel_update_needed and allow_kernel_update
 
     - name: Verify new kernel version after reboot
-      shell: uname -r | cut -d'-' -f1,2
+      shell: uname -r
       register: new_kernel_version
       changed_when: false
 
