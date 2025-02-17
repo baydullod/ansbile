@@ -50,9 +50,12 @@
           --with-included-apr
           --sysconfdir=/etc/apache2
           --localstatedir=/var
-          --logfiledir={{ log_dir }}
+          --with-logdir={{ log_dir }}
           --datadir={{ document_root }}
+      args:
         chdir: "/usr/local/src/httpd-{{ apache_version }}"
+        creates: "/usr/local/src/httpd-{{ apache_version }}/Makefile"
+
 
     - name: Compile and Install Apache
       command:
