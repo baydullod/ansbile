@@ -3,7 +3,7 @@
   hosts: all
   become: true
   vars:
-    apache_version: "2.4.62"
+    apache_version:  "2.4.63"
     apache_prefix: "/usr/local/apache2"
     apache_download_url: "https://downloads.apache.org/httpd/httpd-{{ apache_version }}.tar.gz"
     src_dir: "/usr/local/src/httpd-{{ apache_version }}"
