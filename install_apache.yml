@@ -1,6 +1,6 @@
 ---
 - name: Install Apache HTTPD from Source on Ubuntu
-  hosts: web_servers
+  hosts: all
   become: true
   vars:
     apache_version: "2.4.62"
