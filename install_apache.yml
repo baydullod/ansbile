@@ -87,6 +87,10 @@
         cmd: "make -j{{ ansible_processor_vcpus }}"
       args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
+      register: compile_status
+      changed_when: "'Nothing to be done' not in compile_status.stdout"
+      when: not ansible_check_mode
+
 
     - name: Install Apache HTTPD
       command:
