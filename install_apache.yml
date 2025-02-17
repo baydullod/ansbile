@@ -1,5 +1,5 @@
 ---
-- name: Install Apache HTTPD from Source (Debian/Ubuntu Layout)
+- name: Install Apache HTTPD from Source (Ubuntu 22.04)
   hosts: all
   become: true
   vars:
@@ -59,7 +59,7 @@
       loop:
         - "https://archive.apache.org/dist/apr/apr-{{ apr_version }}.tar.gz"
         - "https://archive.apache.org/dist/apr/apr-util-{{ apr_util_version }}.tar.gz"
-    
+
     - name: Extract APR and APR-Util Into Apache `srclib/`
       ansible.builtin.unarchive:
         src: "/usr/local/src/{{ item | basename }}"
@@ -68,32 +68,31 @@
       loop:
         - "apr-{{ apr_version }}.tar.gz"
         - "apr-util-{{ apr_util_version }}.tar.gz"
-    
+
     - name: Verify APR and APR-Util Extraction
       command: "ls -lah /usr/local/src/httpd-{{ apache_version }}/srclib/"
       register: apr_list
-    
+
     - name: Print Extracted APR and APR-Util Contents
       debug:
         var: apr_list.stdout_lines
-    
+
     - name: Rename Extracted APR Directories to `apr` and `apr-util`
       command:
         cmd: "mv apr-{{ apr_version }} apr && mv apr-util-{{ apr_util_version }} apr-util"
         chdir: "/usr/local/src/httpd-{{ apache_version }}/srclib/"
       args:
         removes: "/usr/local/src/httpd-{{ apache_version }}/srclib/apr"
-    
+
     - name: Verify APR and APR-Util Renaming
       command: "ls -lah /usr/local/src/httpd-{{ apache_version }}/srclib/"
       register: apr_renamed_list
-    
+
     - name: Print Renamed APR and APR-Util Contents
       debug:
         var: apr_renamed_list.stdout_lines
 
-
-    - name: Configure Apache with Debian/Ubuntu Layout
+    - name: Configure Apache with Ubuntu 22.04 Layout
       command:
         cmd: >
           ./configure --prefix={{ apache_prefix }}
