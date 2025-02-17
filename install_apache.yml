@@ -50,12 +50,14 @@
 
     - name: Extract APR and APR-Util
       ansible.builtin.unarchive:
-        src: "/usr/src/{{ item }}.tar.gz"
+        src: "/usr/src/{{ item.name }}.tar.gz"
         dest: "/usr/src/httpd-{{ apache_version }}/srclib/"
         remote_src: yes
+        extra_opts: [ "--strip-components=1" ]
       loop:
-        - apr
-        - apr-util
+        - { name: "apr" }
+        - { name: "apr-util" }
+
 
     - name: Rename APR directories
       command:
