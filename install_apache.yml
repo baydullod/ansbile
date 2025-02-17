@@ -77,20 +77,32 @@
       debug:
         var: apr_list.stdout_lines
 
-    - name: Rename Extracted APR Directories to `apr` and `apr-util`
+    - name: Rename Extracted APR and APR-Util Directories to `apr` and `apr-util`
       command:
-        cmd: "mv apr-{{ apr_version }} apr && mv apr-util-{{ apr_util_version }} apr-util"
-        chdir: "/usr/local/src/httpd-{{ apache_version }}/srclib/"
+        cmd: >
+          mv /usr/local/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }} /usr/local/src/httpd-{{ apache_version }}/srclib/apr &&
+          mv /usr/local/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }} /usr/local/src/httpd-{{ apache_version }}/srclib/apr-util
       args:
         removes: "/usr/local/src/httpd-{{ apache_version }}/srclib/apr"
-
-    - name: Verify APR and APR-Util Renaming
+    
+    - name: Verify APR and APR-Util Final Placement Before Configure
       command: "ls -lah /usr/local/src/httpd-{{ apache_version }}/srclib/"
-      register: apr_renamed_list
-
-    - name: Print Renamed APR and APR-Util Contents
+      register: apr_final_check
+    
+    - name: Print Final APR and APR-Util Directory Contents
       debug:
-        var: apr_renamed_list.stdout_lines
+        var: apr_final_check.stdout_lines
+    
+    - name: Fail if APR Directory is Missing Before Configure
+      fail:
+        msg: "APR directory is missing! Ensure APR is extracted and renamed correctly."
+      when: "'apr' not in apr_final_check.stdout"
+    
+    - name: Fail if APR-Util Directory is Missing Before Configure
+      fail:
+        msg: "APR-Util directory is missing! Ensure APR-Util is extracted and renamed correctly."
+      when: "'apr-util' not in apr_final_check.stdout"
+
 
     - name: Configure Apache with Ubuntu 22.04 Layout
       command:
