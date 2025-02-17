@@ -11,12 +11,7 @@
     apache_prefix: "/etc/apache2"
     document_root: "/var/www"
     log_dir: "/var/log/apache2"
-
-    # Use Apache Archive URLs to avoid 404 issues
-    apr_download_url: "https://archive.apache.org/dist/apr/apr-{{ apr_version }}.tar.gz"
-    apr_util_download_url: "https://archive.apache.org/dist/apr/apr-util-{{ apr_util_version }}.tar.gz"
-    pcre_download_url: "https://ftp.pcre.org/pub/pcre/pcre-{{ pcre_version }}.tar.gz"
-
+    
   tasks:
     - name: Install Required Dependencies
       apt:
@@ -57,13 +52,13 @@
         dest: "/usr/local/src/"
         remote_src: yes
 
-    - name: Ensure APR and APR-Util Are Downloaded
+    - name: Ensure APR and APR-Util Are Downloaded (Using Archive URLs)
       get_url:
         url: "{{ item }}"
         dest: "/usr/local/src/{{ item | basename }}"
       loop:
-        - "{{ apr_download_url }}"
-        - "{{ apr_util_download_url }}"
+        - "https://archive.apache.org/dist/apr/apr-{{ apr_version }}.tar.gz"
+        - "https://archive.apache.org/dist/apr/apr-util-{{ apr_util_version }}.tar.gz"
 
     - name: Extract APR and APR-Util Into Apache `srclib/`
       ansible.builtin.unarchive:
