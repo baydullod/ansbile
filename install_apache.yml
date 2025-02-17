@@ -53,20 +53,21 @@
         src: "/usr/src/{{ item.name }}.tar.gz"
         dest: "/usr/src/httpd-{{ apache_version }}/srclib/"
         remote_src: yes
-        extra_opts: [ "--strip-components=1" ]
       loop:
         - { name: "apr" }
         - { name: "apr-util" }
-
 
     - name: Rename APR and APR-Util directories
       command:
         cmd: mv "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.old }}" "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.new }}"
       loop:
-        - { old: "apr-1.7.5", new: "apr" }
-        - { old: "apr-util-1.6.3", new: "apr-util" }
-      when: ansible_check_mode == false
-
+        - { old: "apr-{{ apr_version }}", new: "apr" }
+        - { old: "apr-util-{{ apr_util_version }}", new: "apr-util" }
+      when: 
+        - ansible.builtin.stat:
+            path: "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.old }}"
+          register: apr_stat
+        - apr_stat.stat.exists
 
     - name: Configure Apache HTTPD
       command:
