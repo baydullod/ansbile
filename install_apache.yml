@@ -58,14 +58,14 @@
 
     - name: Extract APR and APR-Util
       ansible.builtin.unarchive:
-        src: "/usr/src/{{ item.name }}.tar.gz"
+        src: "/usr/src/{{ item.src }}"
         dest: "/usr/src/httpd-{{ apache_version }}/srclib/"
         remote_src: yes
       loop:
-        - { name: "apr" }
-        - { name: "apr-util" }
+        - { src: "apr.tar.gz", name: "apr-{{ apr_version }}" }
+        - { src: "apr-util.tar.gz", name: "apr-util-{{ apr_util_version }}" }
       args:
-        creates: "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.name }}-{{ item.version }}"
+        creates: "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.name }}"
 
     - name: Ensure APR is correctly named
       command: mv "/usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }}" "/usr/src/httpd-{{ apache_version }}/srclib/apr"
