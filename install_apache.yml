@@ -3,9 +3,11 @@
   become: yes
   vars:
     apache_version: "2.4.63"
+    apr_version: "1.7.5"
+    apr_util_version: "1.6.3"
     apache_url: "https://downloads.apache.org/httpd/httpd-{{ apache_version }}.tar.gz"
-    apr_url: "https://downloads.apache.org/apr/apr-1.7.4.tar.gz"
-    apr_util_url: "https://downloads.apache.org/apr/apr-util-1.6.3.tar.gz"
+    apr_url: "https://downloads.apache.org/apr/apr-{{ apr_version }}.tar.gz"
+    apr_util_url: "https://downloads.apache.org/apr/apr-util-{{ apr_util_version }}.tar.gz"
     install_prefix: "/usr/local/apache2"
 
   tasks:
