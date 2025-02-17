@@ -83,10 +83,11 @@
 
     - name: Configure Apache HTTPD
       command:
-        cmd: "./configure --prefix={{ install_prefix }} --enable-so --enable-ssl --enable-rewrite --with-included-apr --with-pcre=/usr"
+        cmd: "./configure --prefix={{ install_prefix }} --enable-so --enable-ssl --enable-rewrite --with-included-apr --with-pcre=/usr --with-expat=/usr"
       args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
         creates: "/usr/src/httpd-{{ apache_version }}/Makefile"
+
 
     - name: Compile Apache HTTPD
       command:
