@@ -1,14 +1,15 @@
 ---
-- name: Install Apache HTTPD from Source (Debian/Ubuntu Style)
+- name: Install Apache HTTPD from Source (Debian/Ubuntu Layout)
   hosts: all
   become: true
   vars:
-    apache_version: "2.4.63"
+    apache_version: "2.4.58"
     apr_version: "1.7.2"
     apr_util_version: "1.6.3"
     pcre_version: "8.45"
+
     apache_prefix: "/etc/apache2"
-    document_root: "/var/www/html"
+    document_root: "/var/www"
     log_dir: "/var/log/apache2"
     
   tasks:
@@ -34,13 +35,47 @@
         - /usr/local/src
         - "{{ document_root }}"
         - "{{ log_dir }}"
+        - /etc/apache2/sites-available
+        - /etc/apache2/sites-enabled
+        - /etc/apache2/mods-available
+        - /etc/apache2/mods-enabled
+        - /usr/lib/cgi-bin
 
-    - name: Download and Extract Apache HTTPD, APR, APR-Util
+    - name: Download Apache HTTPD Source
       get_url:
         url: "https://downloads.apache.org/httpd/httpd-{{ apache_version }}.tar.gz"
         dest: "/usr/local/src/httpd-{{ apache_version }}.tar.gz"
 
-    - name: Configure Apache with Debian Paths
+    - name: Extract Apache HTTPD Source
+      ansible.builtin.unarchive:
+        src: "/usr/local/src/httpd-{{ apache_version }}.tar.gz"
+        dest: "/usr/local/src/"
+        remote_src: yes
+
+    - name: Ensure APR and APR-Util Are Downloaded
+      get_url:
+        url: "{{ item }}"
+        dest: "/usr/local/src/{{ item | basename }}"
+      loop:
+        - "https://downloads.apache.org/apr/apr-{{ apr_version }}.tar.gz"
+        - "https://downloads.apache.org/apr/apr-util-{{ apr_util_version }}.tar.gz"
+
+    - name: Extract APR and APR-Util Into Apache `srclib/`
+      ansible.builtin.unarchive:
+        src: "/usr/local/src/{{ item | basename }}"
+        dest: "/usr/local/src/httpd-{{ apache_version }}/srclib/"
+        remote_src: yes
+      loop:
+        - "apr-{{ apr_version }}.tar.gz"
+        - "apr-util-{{ apr_util_version }}.tar.gz"
+
+    - name: Rename Extracted APR Directories
+      command:
+        cmd: "mv apr-{{ apr_version }} apr && mv apr-util-{{ apr_util_version }} apr-util"
+        chdir: "/usr/local/src/httpd-{{ apache_version }}/srclib/"
+        removes: "/usr/local/src/httpd-{{ apache_version }}/srclib/apr"
+
+    - name: Configure Apache with Debian/Ubuntu Layout
       command:
         cmd: >
           ./configure --prefix={{ apache_prefix }}
@@ -52,15 +87,25 @@
           --localstatedir=/var
           --with-logdir={{ log_dir }}
           --datadir={{ document_root }}
+          --sbindir=/usr/sbin
       args:
         chdir: "/usr/local/src/httpd-{{ apache_version }}"
         creates: "/usr/local/src/httpd-{{ apache_version }}/Makefile"
-
 
     - name: Compile and Install Apache
       command:
         cmd: "make && make install"
         chdir: "/usr/local/src/httpd-{{ apache_version }}"
+
+    - name: Create Apache Configuration File
+      template:
+        src: apache2.conf.j2
+        dest: /etc/apache2/apache2.conf
+
+    - name: Create Apache Ports Configuration File
+      template:
+        src: ports.conf.j2
+        dest: /etc/apache2/ports.conf
 
     - name: Create Systemd Service for Apache
       copy:
@@ -98,7 +143,7 @@
 
     - name: Verify Apache Version
       command:
-        cmd: "{{ apache_prefix }}/bin/httpd -v"
+        cmd: "/usr/sbin/apachectl -v"
       register: apache_version_output
       changed_when: false
 
