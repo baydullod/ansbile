@@ -68,18 +68,18 @@
         creates: "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.name }}"
 
     - name: Ensure APR is correctly named
-      command: mv "/usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }}" "/usr/src/httpd-{{ apache_version }}/srclib/apr"
+      command:
+        cmd: "mv /usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }} /usr/src/httpd-{{ apache_version }}/srclib/apr"
       args:
         removes: "/usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }}"
         creates: "/usr/src/httpd-{{ apache_version }}/srclib/apr"
-      ignore_errors: yes  # Ignore error if already correct
 
     - name: Ensure APR-Util is correctly named
-      command: mv "/usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }}" "/usr/src/httpd-{{ apache_version }}/srclib/apr-util"
+      command:
+        cmd: "mv /usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }} /usr/src/httpd-{{ apache_version }}/srclib/apr-util"
       args:
         removes: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }}"
         creates: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util"
-      ignore_errors: yes  # Ignore error if already correct
 
     - name: Configure Apache HTTPD
       command:
@@ -89,11 +89,17 @@
         creates: "/usr/src/httpd-{{ apache_version }}/Makefile"
 
 
+    - name: Check if Apache HTTPD is already compiled
+      stat:
+        path: "{{ install_prefix }}/bin/httpd"
+      register: httpd_binary
+
     - name: Compile Apache HTTPD
       command:
         cmd: "make -j{{ ansible_processor_vcpus }}"
       args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
+      when: not httpd_binary.stat.exists
       register: compile_output
       changed_when: "'Nothing to be done' not in compile_output.stdout"
       ignore_errors: yes
@@ -101,7 +107,7 @@
     - name: Debug Compile Output
       debug:
         msg: "{{ compile_output.stdout_lines }}"
-
+      when: compile_output is defined
 
     - name: Install Apache HTTPD
       command:
@@ -112,7 +118,7 @@
 
     - name: Create systemd service for Apache
       copy:
-        dest: "/etc/systemd/system/apache2.service"
+        dest: "/etc/systemd/system/httpd.service"
         mode: '0644'
         content: |
           [Unit]
@@ -136,6 +142,6 @@
 
     - name: Enable and start Apache service
       systemd:
-        name: apache2
+        name: httpd
         enabled: yes
         state: started
