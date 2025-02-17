@@ -3,11 +3,15 @@
   hosts: all
   become: true
   vars:
-    apache_version:  "2.4.63"
+    apache_version: "2.4.63"
+    apr_version: "1.7.4"
+    apr_util_version: "1.6.3"
     apache_prefix: "/usr/local/apache2"
+    src_dir: "/usr/local/src"
     apache_download_url: "https://downloads.apache.org/httpd/httpd-{{ apache_version }}.tar.gz"
-    src_dir: "/usr/local/src/httpd-{{ apache_version }}"
-    
+    apr_download_url: "https://downloads.apache.org/apr/apr-{{ apr_version }}.tar.gz"
+    apr_util_download_url: "https://downloads.apache.org/apr/apr-util-{{ apr_util_version }}.tar.gz"
+
   tasks:
     - name: Install Required Dependencies
       apt:
@@ -25,31 +29,71 @@
     - name: Download Apache HTTPD Source
       get_url:
         url: "{{ apache_download_url }}"
-        dest: "/usr/local/src/httpd-{{ apache_version }}.tar.gz"
+        dest: "{{ src_dir }}/httpd-{{ apache_version }}.tar.gz"
 
     - name: Extract Apache HTTPD Source
       ansible.builtin.unarchive:
-        src: "/usr/local/src/httpd-{{ apache_version }}.tar.gz"
-        dest: "/usr/local/src/"
+        src: "{{ src_dir }}/httpd-{{ apache_version }}.tar.gz"
+        dest: "{{ src_dir }}/"
         remote_src: yes
+
+    - name: Download APR Source
+      get_url:
+        url: "{{ apr_download_url }}"
+        dest: "{{ src_dir }}/apr-{{ apr_version }}.tar.gz"
+
+    - name: Extract APR Source
+      ansible.builtin.unarchive:
+        src: "{{ src_dir }}/apr-{{ apr_version }}.tar.gz"
+        dest: "{{ src_dir }}/"
+        remote_src: yes
+
+    - name: Download APR-Util Source
+      get_url:
+        url: "{{ apr_util_download_url }}"
+        dest: "{{ src_dir }}/apr-util-{{ apr_util_version }}.tar.gz"
+
+    - name: Extract APR-Util Source
+      ansible.builtin.unarchive:
+        src: "{{ src_dir }}/apr-util-{{ apr_util_version }}.tar.gz"
+        dest: "{{ src_dir }}/"
+        remote_src: yes
+
+    - name: Build and Install APR
+      shell: |
+        ./configure --prefix=/usr/local/apr
+        make -j$(nproc)
+        make install
+      args:
+        chdir: "{{ src_dir }}/apr-{{ apr_version }}"
+        creates: "/usr/local/apr/bin/apr-1-config"
+
+    - name: Build and Install APR-Util
+      shell: |
+        ./configure --prefix=/usr/local/apr --with-apr=/usr/local/apr
+        make -j$(nproc)
+        make install
+      args:
+        chdir: "{{ src_dir }}/apr-util-{{ apr_util_version }}"
+        creates: "/usr/local/apr/bin/apu-1-config"
 
     - name: Configure Apache Source Code
       command:
-        cmd: "./configure --prefix={{ apache_prefix }} --enable-ssl --enable-so --enable-mods-shared=all --with-mpm=event"
-        chdir: "{{ src_dir }}"
-        creates: "{{ src_dir }}/Makefile"
+        cmd: "./configure --prefix={{ apache_prefix }} --enable-ssl --enable-so --enable-mods-shared=all --with-mpm=event --with-apr=/usr/local/apr"
+        chdir: "{{ src_dir }}/httpd-{{ apache_version }}"
+        creates: "{{ src_dir }}/httpd-{{ apache_version }}/Makefile"
 
     - name: Compile Apache HTTPD
       command:
         cmd: "make -j{{ ansible_processor_vcpus }}"
-        chdir: "{{ src_dir }}"
+        chdir: "{{ src_dir }}/httpd-{{ apache_version }}"
       async: 300
       poll: 10
 
     - name: Install Apache HTTPD
       command:
         cmd: "make install"
-        chdir: "{{ src_dir }}"
+        chdir: "{{ src_dir }}/httpd-{{ apache_version }}"
 
     - name: Create Systemd Service for Apache
       copy:
@@ -79,6 +123,15 @@
         name: apache2
         state: started
         enabled: yes
+
+    - name: Open Firewall Ports for Apache (80 and 443)
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - 80
+        - 443
 
     - name: Verify Apache Version
       command:
