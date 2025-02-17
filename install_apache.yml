@@ -59,12 +59,14 @@
         - { name: "apr-util" }
 
 
-    - name: Rename APR directories
+    - name: Rename APR and APR-Util directories
       command:
-        cmd: mv /usr/src/httpd-{{ apache_version }}/srclib/{{ item }}-* /usr/src/httpd-{{ apache_version }}/srclib/{{ item }}
+        cmd: mv "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.old }}" "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.new }}"
       loop:
-        - apr
-        - apr-util
+        - { old: "apr-1.7.5", new: "apr" }
+        - { old: "apr-util-1.6.3", new: "apr-util" }
+      when: ansible_check_mode == false
+
 
     - name: Configure Apache HTTPD
       command:
