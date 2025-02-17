@@ -3,7 +3,7 @@
   hosts: all
   become: true
   vars:
-    apache_version: "2.4.58"
+    apache_version: "2.4.63"
     apr_version: "1.7.2"
     apr_util_version: "1.6.3"
     pcre_version: "8.45"
