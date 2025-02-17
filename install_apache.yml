@@ -26,6 +26,10 @@
           - autoconf
           - libtool
           - pkg-config
+          - uuid-dev
+          - libxml2-dev
+          - libexpat1-dev
+          - libnghttp2-dev
         state: present
         update_cache: yes
 
@@ -33,17 +37,21 @@
       get_url:
         url: "{{ apache_url }}"
         dest: "/usr/src/httpd-{{ apache_version }}.tar.gz"
+        mode: '0644'
 
     - name: Extract Apache HTTPD source
       ansible.builtin.unarchive:
         src: "/usr/src/httpd-{{ apache_version }}.tar.gz"
         dest: "/usr/src/"
         remote_src: yes
+      args:
+        creates: "/usr/src/httpd-{{ apache_version }}"
 
     - name: Download APR and APR-Util
       get_url:
         url: "{{ item.url }}"
         dest: "/usr/src/{{ item.name }}.tar.gz"
+        mode: '0644'
       loop:
         - { url: "{{ apr_url }}", name: "apr" }
         - { url: "{{ apr_util_url }}", name: "apr-util" }
@@ -56,50 +64,48 @@
       loop:
         - { name: "apr" }
         - { name: "apr-util" }
+      args:
+        creates: "/usr/src/httpd-{{ apache_version }}/srclib/{{ item.name }}-{{ item.version }}"
 
-    - name: Check if APR directory exists
-      stat:
-        path: "/usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }}"
-      register: apr_dir_stat
+    - name: Ensure APR is correctly named
+      command: mv "/usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }}" "/usr/src/httpd-{{ apache_version }}/srclib/apr"
+      args:
+        removes: "/usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }}"
+        creates: "/usr/src/httpd-{{ apache_version }}/srclib/apr"
+      ignore_errors: yes  # Ignore error if already correct
 
-    - name: Check if APR-Util directory exists
-      stat:
-        path: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }}"
-      register: apr_util_dir_stat
-
-    - name: Rename APR directory
-      command:
-        cmd: mv "/usr/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }}" "/usr/src/httpd-{{ apache_version }}/srclib/apr"
-      when: apr_dir_stat.stat.exists
-
-    - name: Rename APR-Util directory
-      command:
-        cmd: mv "/usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }}" "/usr/src/httpd-{{ apache_version }}/srclib/apr-util"
-      when: apr_util_dir_stat.stat.exists
+    - name: Ensure APR-Util is correctly named
+      command: mv "/usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }}" "/usr/src/httpd-{{ apache_version }}/srclib/apr-util"
+      args:
+        removes: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }}"
+        creates: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util"
+      ignore_errors: yes  # Ignore error if already correct
 
     - name: Configure Apache HTTPD
       command:
-        cmd: "./configure --prefix={{ install_prefix }} --enable-so --enable-ssl --enable-rewrite --with-included-apr"
+        cmd: "./configure --prefix={{ install_prefix }} --enable-so --enable-ssl --enable-rewrite --with-included-apr --with-pcre=/usr"
+      args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
+        creates: "/usr/src/httpd-{{ apache_version }}/Makefile"
 
     - name: Compile Apache HTTPD
       command:
         cmd: "make -j{{ ansible_processor_vcpus }}"
       args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
-      register: compile_status
-      changed_when: "'Nothing to be done' not in compile_status.stdout"
-      when: not ansible_check_mode
-
+        creates: "/usr/src/httpd-{{ apache_version }}/httpd"
 
     - name: Install Apache HTTPD
       command:
         cmd: "make install"
+      args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
+        creates: "{{ install_prefix }}/bin/httpd"
 
     - name: Create systemd service for Apache
       copy:
         dest: "/etc/systemd/system/apache2.service"
+        mode: '0644'
         content: |
           [Unit]
           Description=Apache HTTP Server
