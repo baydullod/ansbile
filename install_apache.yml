@@ -1,19 +1,15 @@
----
-- name: Install Apache HTTPD from Source (Ubuntu 22.04)
+- name: Install Apache HTTPD from Source
   hosts: all
-  become: true
+  become: yes
   vars:
     apache_version: "2.4.63"
-    apr_version: "1.7.2"
-    apr_util_version: "1.6.3"
-    pcre_version: "8.45"
+    apache_url: "https://downloads.apache.org/httpd/httpd-{{ apache_version }}.tar.gz"
+    apr_url: "https://downloads.apache.org/apr/apr-1.7.4.tar.gz"
+    apr_util_url: "https://downloads.apache.org/apr/apr-util-1.6.3.tar.gz"
+    install_prefix: "/usr/local/apache2"
 
-    apache_prefix: "/etc/apache2"
-    document_root: "/var/www"
-    log_dir: "/var/log/apache2"
-    
   tasks:
-    - name: Install Required Dependencies
+    - name: Install required dependencies
       apt:
         name:
           - build-essential
@@ -21,161 +17,91 @@
           - libpcre3-dev
           - libssl-dev
           - zlib1g-dev
+          - perl
           - wget
           - tar
+          - make
+          - autoconf
+          - libtool
+          - pkg-config
         state: present
         update_cache: yes
 
-    - name: Ensure Required Directories Exist
-      file:
-        path: "{{ item }}"
-        state: directory
-        mode: '0755'
-      loop:
-        - /usr/local/src
-        - "{{ document_root }}"
-        - "{{ log_dir }}"
-        - /etc/apache2/sites-available
-        - /etc/apache2/sites-enabled
-        - /etc/apache2/mods-available
-        - /etc/apache2/mods-enabled
-        - /usr/lib/cgi-bin
-
-    - name: Download Apache HTTPD Source
+    - name: Download Apache HTTPD source
       get_url:
-        url: "https://downloads.apache.org/httpd/httpd-{{ apache_version }}.tar.gz"
-        dest: "/usr/local/src/httpd-{{ apache_version }}.tar.gz"
+        url: "{{ apache_url }}"
+        dest: "/usr/src/httpd-{{ apache_version }}.tar.gz"
 
-    - name: Extract Apache HTTPD Source
+    - name: Extract Apache HTTPD source
       ansible.builtin.unarchive:
-        src: "/usr/local/src/httpd-{{ apache_version }}.tar.gz"
-        dest: "/usr/local/src/"
+        src: "/usr/src/httpd-{{ apache_version }}.tar.gz"
+        dest: "/usr/src/"
         remote_src: yes
 
-    - name: Ensure APR and APR-Util Are Downloaded (Using Archive URLs)
+    - name: Download APR and APR-Util
       get_url:
-        url: "{{ item }}"
-        dest: "/usr/local/src/{{ item | basename }}"
+        url: "{{ item.url }}"
+        dest: "/usr/src/{{ item.name }}.tar.gz"
       loop:
-        - "https://archive.apache.org/dist/apr/apr-{{ apr_version }}.tar.gz"
-        - "https://archive.apache.org/dist/apr/apr-util-{{ apr_util_version }}.tar.gz"
+        - { url: "{{ apr_url }}", name: "apr" }
+        - { url: "{{ apr_util_url }}", name: "apr-util" }
 
-    - name: Extract APR and APR-Util Into Apache `srclib/`
+    - name: Extract APR and APR-Util
       ansible.builtin.unarchive:
-        src: "/usr/local/src/{{ item | basename }}"
-        dest: "/usr/local/src/httpd-{{ apache_version }}/srclib/"
+        src: "/usr/src/{{ item }}.tar.gz"
+        dest: "/usr/src/httpd-{{ apache_version }}/srclib/"
         remote_src: yes
       loop:
-        - "apr-{{ apr_version }}.tar.gz"
-        - "apr-util-{{ apr_util_version }}.tar.gz"
+        - apr
+        - apr-util
 
-    - name: Verify APR and APR-Util Extraction
-      command: "ls -lah /usr/local/src/httpd-{{ apache_version }}/srclib/"
-      register: apr_list
-
-    - name: Print Extracted APR and APR-Util Contents
-      debug:
-        var: apr_list.stdout_lines
-
-    - name: Rename Extracted APR and APR-Util Directories to `apr` and `apr-util`
+    - name: Rename APR directories
       command:
-        cmd: >
-          mv /usr/local/src/httpd-{{ apache_version }}/srclib/apr-{{ apr_version }} /usr/local/src/httpd-{{ apache_version }}/srclib/apr &&
-          mv /usr/local/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }} /usr/local/src/httpd-{{ apache_version }}/srclib/apr-util
-      args:
-        removes: "/usr/local/src/httpd-{{ apache_version }}/srclib/apr"
-    
-    - name: Verify APR and APR-Util Final Placement Before Configure
-      command: "ls -lah /usr/local/src/httpd-{{ apache_version }}/srclib/"
-      register: apr_final_check
-    
-    - name: Print Final APR and APR-Util Directory Contents
-      debug:
-        var: apr_final_check.stdout_lines
-    
-    - name: Fail if APR Directory is Missing Before Configure
-      fail:
-        msg: "APR directory is missing! Ensure APR is extracted and renamed correctly."
-      when: "'apr' not in apr_final_check.stdout"
-    
-    - name: Fail if APR-Util Directory is Missing Before Configure
-      fail:
-        msg: "APR-Util directory is missing! Ensure APR-Util is extracted and renamed correctly."
-      when: "'apr-util' not in apr_final_check.stdout"
+        cmd: mv /usr/src/httpd-{{ apache_version }}/srclib/{{ item }}-* /usr/src/httpd-{{ apache_version }}/srclib/{{ item }}
+      loop:
+        - apr
+        - apr-util
 
-
-    - name: Configure Apache with Ubuntu 22.04 Layout
+    - name: Configure Apache HTTPD
       command:
-        cmd: >
-          ./configure --prefix={{ apache_prefix }}
-          --enable-ssl --enable-so
-          --enable-mods-shared=all
-          --with-mpm=event
-          --with-included-apr
-          --sysconfdir=/etc/apache2
-          --localstatedir=/var
-          --with-logdir={{ log_dir }}
-          --datadir={{ document_root }}
-          --sbindir=/usr/sbin
-      args:
-        chdir: "/usr/local/src/httpd-{{ apache_version }}"
-        creates: "/usr/local/src/httpd-{{ apache_version }}/Makefile"
+        cmd: "./configure --prefix={{ install_prefix }} --enable-so --enable-ssl --enable-rewrite --with-included-apr"
+        chdir: "/usr/src/httpd-{{ apache_version }}"
 
-    - name: Compile and Install Apache
+    - name: Compile Apache HTTPD
       command:
-        cmd: "make && make install"
-        chdir: "/usr/local/src/httpd-{{ apache_version }}"
+        cmd: "make -j$(nproc)"
+        chdir: "/usr/src/httpd-{{ apache_version }}"
 
-    - name: Create Apache Configuration File
-      template:
-        src: apache2.conf.j2
-        dest: /etc/apache2/apache2.conf
+    - name: Install Apache HTTPD
+      command:
+        cmd: "make install"
+        chdir: "/usr/src/httpd-{{ apache_version }}"
 
-    - name: Create Apache Ports Configuration File
-      template:
-        src: ports.conf.j2
-        dest: /etc/apache2/ports.conf
-
-    - name: Create Systemd Service for Apache
+    - name: Create systemd service for Apache
       copy:
-        dest: /etc/systemd/system/apache2.service
+        dest: "/etc/systemd/system/apache2.service"
         content: |
           [Unit]
-          Description=Apache HTTPD
+          Description=Apache HTTP Server
           After=network.target
 
           [Service]
-          ExecStart={{ apache_prefix }}/bin/httpd -DFOREGROUND
-          ExecReload={{ apache_prefix }}/bin/apachectl graceful
-          ExecStop={{ apache_prefix }}/bin/apachectl stop
-          Restart=always
-          User=root
-          Group=root
+          Type=forking
+          ExecStart={{ install_prefix }}/bin/apachectl -k start
+          ExecStop={{ install_prefix }}/bin/apachectl -k stop
+          ExecReload={{ install_prefix }}/bin/apachectl -k graceful
+          PIDFile={{ install_prefix }}/logs/httpd.pid
+          PrivateTmp=true
 
           [Install]
           WantedBy=multi-user.target
 
-    - name: Enable and Start Apache HTTPD
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Apache service
       systemd:
         name: apache2
-        state: started
         enabled: yes
-
-    - name: Open Firewall Ports for Apache (80 and 443)
-      ufw:
-        rule: allow
-        port: "{{ item }}"
-        proto: tcp
-      loop:
-        - 80
-        - 443
-
-    - name: Verify Apache Version
-      command:
-        cmd: "/usr/sbin/apachectl -v"
-      register: apache_version_output
-      changed_when: false
-
-    - name: Print Apache Version
-      debug:
-        msg: "{{ apache_version_output.stdout }}"
+        state: started
