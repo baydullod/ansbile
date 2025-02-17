@@ -81,13 +81,20 @@
         removes: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util-{{ apr_util_version }}"
         creates: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util"
 
-    - name: Configure Apache HTTPD
+    - name: Ensure correct permissions for APR and APR-Util
+      file:
+        path: "/usr/src/httpd-{{ apache_version }}/srclib/apr-util"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+        recurse: yes
+
+    - name: Configure Apache HTTPD with correct paths
       command:
-        cmd: "./configure --prefix={{ install_prefix }} --enable-so --enable-ssl --enable-rewrite --with-included-apr --with-pcre=/usr --with-expat=/usr"
+        cmd: "./configure --prefix={{ install_prefix }} --enable-so --enable-ssl --enable-rewrite --with-included-apr --with-pcre=/usr --with-expat=/usr --with-apr=/usr/local/apr --with-apr-util=/usr/local/apr"
       args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
         creates: "/usr/src/httpd-{{ apache_version }}/Makefile"
-
 
     - name: Check if Apache HTTPD is already compiled
       stat:
@@ -102,12 +109,6 @@
       when: not httpd_binary.stat.exists
       register: compile_output
       changed_when: "'Nothing to be done' not in compile_output.stdout"
-      ignore_errors: yes
-
-    - name: Debug Compile Output
-      debug:
-        msg: "{{ compile_output.stdout_lines }}"
-      when: compile_output is defined
 
     - name: Install Apache HTTPD
       command:
@@ -145,3 +146,13 @@
         name: httpd
         enabled: yes
         state: started
+
+    - name: Verify Apache is running
+      command:
+        cmd: "{{ install_prefix }}/bin/httpd -v"
+      register: apache_version_output
+      changed_when: false
+
+    - name: Display Apache version
+      debug:
+        msg: "{{ apache_version_output.stdout }}"
