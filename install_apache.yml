@@ -84,7 +84,8 @@
 
     - name: Compile Apache HTTPD
       command:
-        cmd: "make -j$(nproc)"
+        cmd: "make -j{{ ansible_processor_vcpus }}"
+      args:
         chdir: "/usr/src/httpd-{{ apache_version }}"
 
     - name: Install Apache HTTPD
